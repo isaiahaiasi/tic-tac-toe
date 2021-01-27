@@ -1,20 +1,58 @@
 :root {
-  --col-base-0: #1a1a2e;
-  --col-base-1: #16213e;
-  --col-base-2: #0f3460;
-  --col-primary: #e94560;
-  --col-black: #000000;
-  --col-white: #FFFFFF;
+  --col-base-0:#1a1a2e;
+  --col-base-1:#16213e;
+  --col-base-2:#0f3460;
+  --col-primary:#e94560;
+  --col-black:#000000;
+  --col-white:#FFFFFF;
+
+  --border-radius:5px;
+
+  --card-height:1em;
+  --card-spacing:1.5px;
 }
 
 html, body {
-  background: var(--col-base-1);
-  color: var(--col-white);
+  background:var(--col-base-1);
+  color:var(--col-white);
 }
 
 header {
-  text-align: center;
-  font-size:8em;
+  text-align:center;
+  font-size:4em;
   font-weight:bold;
-  text-shadow: .05em .05em 0 var(--col-primary);
+  text-shadow:.05em .05em 0 var(--col-primary);
+}
+
+main {
+  font-size:7em;
+  max-width: 90vw;
+  width: calc(3*var(--card-height));
+  margin:auto;
+  margin-top: 1em;
+}
+
+.game-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background:var(--col-primary);
+  margin:auto;
+  padding:var(--card-spacing);
+  border-radius:var(--border-radius);
+  box-shadow:.1em .1em .5em var(--col-base-0);
+  transform:skewX(-3deg);
+}
+
+.card {
+  margin:var(--card-spacing);
+  background:var(--col-base-1);
+  border-radius:var(--border-radius);
+  text-align:center;
+  transform:skewX(2deg);
+}
+
+@media only screen and (min-width:600px) {
+  header {
+    font-size:7em;
+  }
 }
