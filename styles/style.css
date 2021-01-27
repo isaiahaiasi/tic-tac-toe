@@ -1,0 +1,20 @@
+:root {
+  --col-base-0: #1a1a2e;
+  --col-base-1: #16213e;
+  --col-base-2: #0f3460;
+  --col-primary: #e94560;
+  --col-black: #000000;
+  --col-white: #FFFFFF;
+}
+
+html, body {
+  background: var(--col-base-1);
+  color: var(--col-white);
+}
+
+header {
+  text-align: center;
+  font-size:8em;
+  font-weight:bold;
+  text-shadow: .05em .05em 0 var(--col-primary);
+}
