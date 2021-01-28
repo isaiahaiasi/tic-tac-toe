@@ -1,5 +1,3 @@
-// I'd like to use a pubsub pattern to mediate between my DOM & my Logic
-// I'm trying to do it without direct reference first, so we'll see how THAT goes...
 const Events = (function() {
   // create a new event, if one with that name doesn't already exist
   const publish = function(eventName) {
@@ -56,8 +54,6 @@ const Events = (function() {
     return _events.has(eventName);
   };
 
-  // Event factory
-  // (might be cool to make any argument after the first be immediately added as an event)
   const _createEvent = function(eventName) {
     const _listeners = [];
 
@@ -135,8 +131,6 @@ const GameFlow = (function() {
   return { init, getCurrentPlayer };
 })();
 
-// Get all my dom references, generate anything I need
-// ... and define dom event functions??? (eg, "makeBoard" to spawn the gameboard)
 const DOM = (function() {
   function init() {
     _createBoard();
@@ -166,18 +160,15 @@ const DOM = (function() {
     }
   }
 
-  // "Making" a tile doesn't automatically embed it in the page
-  // i = index of the tile in the board array
-  function _createBoardTile(i) {
+  function _createBoardTile(boardIndex) {
     const tile = document.createElement('div');
     tile.classList.add('tile');
-    tile.setAttribute('data-tile-index', i);
     tile.addEventListener('click', onClick);
 
-    //TODO: Move event registers to a more appropriate module
-    //? UI Triggers seems like a mostly separate concern from rendering
+    //TODO: Move event registers to a more appropriate module?
+    // (UI triggers seems like a mostly separate concern from rendering)
     function onClick() {
-      Events.invoke('movePlayed', [i]);
+      Events.invoke('movePlayed', [boardIndex]);
     }
 
     return tile;
@@ -186,7 +177,6 @@ const DOM = (function() {
   return { init };
 })();
 
-//* GAMEBOARD MODULE
 const GameBoard = (function(boardSize = 3) {
   function init() {
     Events.subscribe('movePlayed', _movePlayed);
@@ -197,13 +187,10 @@ const GameBoard = (function(boardSize = 3) {
 
   const _board = [];
 
-  // there are 3 possible outcomes: invalid, continue, or game over
-  //? Too many concerns?
   function _movePlayed(boardIndex) {
     //? Not sure it was worth moving event invocation out of GameFlow,
-    //?  if I'm still tightly coupling this... 
-    // Although maybe it's ok if "GameFlow" is a little more accessible,
-    //  since it's basically the god-module...
+    //?  if I'm still tightly coupling this
+    // Especially bc there will be more logic around WHICH player once I have AI vs HUMAN...
     if (!_trySet(boardIndex, GameFlow.getCurrentPlayer())) {
       return false;
     }
@@ -216,7 +203,6 @@ const GameBoard = (function(boardSize = 3) {
     return true;
   }
 
-  // return bool, sets board if valid
   function _trySet(boardIndex, player) {
     if (_board[boardIndex]) {
       return false;
@@ -226,12 +212,12 @@ const GameBoard = (function(boardSize = 3) {
     return true;
   }
 
-  // I'm not sure where to put isGameOver, but this will go along with that
-  // Returns {x,y} coordinates on board based on board index & board size
   function _xy(boardIndex) {
     return {
-      x: Math.floor(boardIndex / boardSize), // [0, 1, 2] = 0, [3, 4, 5] = 1, etc
-      y: boardIndex % boardSize,             // [0, 3, 6] = 0, [1, 4, 7] = 1, etc
+      // x: [0, 1, 2] = 0, [3, 4, 5] = 1, etc
+      x: Math.floor(boardIndex / boardSize),
+      // y: [0, 3, 6] = 0, [1, 4, 7] = 1, etc
+      y: boardIndex % boardSize,
     };
   }
   
@@ -245,8 +231,7 @@ const GameBoard = (function(boardSize = 3) {
   return { init, getBoard };
 })();
 
-//* PLAYER FACTORY
-//? not sure if I should use inheritance to player(human) + player(npc)...
+//? not sure if I should use inheritance for player(human) + player(npc)...
 const CreatePlayer = (function(mark) {
   //TODO: Not sure yet what player-specific functionality I'd need...
   return { mark };
