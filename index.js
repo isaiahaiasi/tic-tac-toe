@@ -12,12 +12,12 @@ const Events = (function() {
   }
 
   // call all subscribed functions
-  const invoke = function(eventName) {
+  const invoke = function(eventName, args) {
     if (!_hasEvent(eventName)) {
       console.warn(`Tried to invoke nonexistent event ${eventName}!`);
       return false;
     }
-    _events.get(eventName).callListeners();
+    _events.get(eventName).callListeners(args);
     return true;
   };
 
@@ -81,12 +81,12 @@ const Events = (function() {
       return true;
     };
 
-    const callListeners = function() {
+    const callListeners = function(args) {
       if (_listeners.length < 1) {
         console.warn(`Tried to invoke ${eventName}, but it did not have any listeners!`);
         return false;
       }
-      _listeners.forEach(listener => listener());
+      _listeners.forEach(listener => args ? listener(...args) : listener());
       return true;
     };
 
@@ -101,30 +101,78 @@ const Events = (function() {
 })();
 
 // * GAMEFLOW MODULE
-// - creates the board and gets the players
 // - hands control back and forth between players when a valid move is played
 // - if a winning move is played, show the win screen
 // - (the win screen should have an eventlistener that will goto 0)
 const GameFlow = (function() {
-  return {};
+  function init() {
+    Events.publish('movePlayed');
+    Events.publish('boardUpdated');
+    Events.subscribe('movePlayed', _playMove);
+    DOM.init();
+
+    _players.push(CreatePlayer('X'));
+    _players.push(CreatePlayer('O'));
+    _currentPlayer = 0;
+  }
+
+  const _players = [];
+  let _currentPlayer;
+
+  function _playMove(tileIndex) {
+    //? Not sure if everything should go through GameFlow first,
+    //? Or if gameBoard can listen for movePlayed instead... that probably makes more sense
+    console.log(`_playMove(${tileIndex})`);
+    // push the update to the board so it can check outcome 
+    // (invalid, valid-nonwinning, valid-winning)
+    if (GameBoard.updateBoard(tileIndex, _players[_currentPlayer])) {
+      // Based on outcome call an event
+      // If the move is valid, invoke the update board event
+      Events.invoke('boardUpdated');
+
+      // increment the turn
+      _incrementTurn();
+    }
+  }
+
+  function _incrementTurn() {
+    _currentPlayer = (_currentPlayer + 1) % _players.length;
+    console.log(`current player: ${_players[_currentPlayer].mark}`);
+  }
+
+  return { init };
 })();
 
 // Get all my dom references, generate anything I need
 // ... and define dom event functions??? (eg, "makeBoard" to spawn the gameboard)
 const DOM = (function() {
+  function init() {
+    _createBoard();
+    Events.subscribe('boardUpdated', _updateBoard);
+  }
+
   const _gameBoard = document.querySelector('.game-board');
 
   const _boardTiles = [];
 
-  // ! (This is probably only public temporarily, for convenience)
-  const makeBoard = (boardSize = 3) => {
+  function _createBoard(boardSize = 3) {
     for (let i = 0; i < (boardSize * boardSize); i++) {
-      _boardTiles.push(_createBoardTile());
+      _boardTiles.push(_createBoardTile(i));
     }
     _boardTiles.forEach(tile => {
       _gameBoard.appendChild(tile);
     });
-  };
+  }
+
+  function _updateBoard() {
+    //? Could maybe use Dependency Injection thru event, 
+    //? instead of directly interfacing w GameBoard module?
+    const newState = GameBoard.getBoard();
+    for (let i = 0; i < newState.length; i++) {
+      const mark = newState[i] ? newState[i].mark :'';
+      _boardTiles[i].textContent = mark;
+    }
+  }
 
   // "Making" a tile doesn't automatically embed it in the page
   // i = index of the tile in the board array
@@ -135,30 +183,21 @@ const DOM = (function() {
     tile.addEventListener('click', onClick);
 
     // TODO: Move event registers to a more appropriate module
-    // ? User Interface Triggers seems like a mostly separate concern from rendering
-    function onClick(e) {
-      // TODO: Invoke an "update board(pos)" event
-      // ! TEMP
-      tile.textContent = 'X';
+    // ? UI Triggers seems like a mostly separate concern from rendering
+    function onClick() {
+      Events.invoke('movePlayed', [i]);
     }
 
     return tile;
   }
 
-  return { makeBoard };
+  return { init };
 })();
 
 // * GAMEBOARD MODULE
 const GameBoard = (function(boardSize = 3) {
-  const _board = [boardSize * boardSize];
-
-  // I'm honestly not sure how to make a propper {get; private set;}
-  function getBoard() {
-    return [..._board];
-  }
-
   // there are 3 possible outcomes: invalid, continue, or game over
-  // I might want to have 3 possible return values...
+  //? Too many concerns?
   function updateBoard(boardIndex, player) {
     if (!_trySet(boardIndex, player)) {
       return false;
@@ -169,12 +208,17 @@ const GameBoard = (function(boardSize = 3) {
       return '???????'; // not sure what if anything this outcome should return
     }
 
+    // TODO: invoke "board updated" event
     return true;
   }
+  
+  const getBoard = () => [..._board];
+  
+  const _board = [];
 
   // return bool, sets board if valid
   function _trySet(boardIndex, player) {
-    if (_board[boardIndex] !== null) {
+    if (_board[boardIndex]) {
       return false;
     }
 
@@ -198,17 +242,15 @@ const GameBoard = (function(boardSize = 3) {
     return false;
   }
 
-  return { getBoard, updateBoard };
+  return { updateBoard, getBoard };
 })();
 
-let GameBoardView; //? Maybe have paired modules for logic & ui?
-
-// * PLAYER FACTORY
-// not sure if I should use inheritance to player(human) + player(npc)...
-const MakePlayer = (function(type) {
-  let isTheirTurn = false;
-  return {}
+//* PLAYER FACTORY
+//? not sure if I should use inheritance to player(human) + player(npc)...
+const CreatePlayer = (function(mark) {
+  //TODO: Not sure yet what player-specific functionality I'd need...
+  return { mark };
 });
 
-// ! TEMP
-DOM.makeBoard();
+
+GameFlow.init();
