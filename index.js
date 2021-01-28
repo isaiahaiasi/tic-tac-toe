@@ -100,47 +100,39 @@ const Events = (function() {
   return { publish, invoke, subscribe, unsubscribe, destroyEvent };
 })();
 
-// * GAMEFLOW MODULE
-// - hands control back and forth between players when a valid move is played
-// - if a winning move is played, show the win screen
-// - (the win screen should have an eventlistener that will goto 0)
 const GameFlow = (function() {
   function init() {
     Events.publish('movePlayed');
     Events.publish('boardUpdated');
-    Events.subscribe('movePlayed', _playMove);
+    Events.subscribe('boardUpdated', _playMove);
+    GameBoard.init();
     DOM.init();
 
     _players.push(CreatePlayer('X'));
     _players.push(CreatePlayer('O'));
     _currentPlayer = 0;
+    _turnCounter = 0;
+  }
+
+  function getCurrentPlayer() {
+    return _players[_currentPlayer];
   }
 
   const _players = [];
   let _currentPlayer;
+  let _turnCounter;
 
-  function _playMove(tileIndex) {
-    //? Not sure if everything should go through GameFlow first,
-    //? Or if gameBoard can listen for movePlayed instead... that probably makes more sense
-    console.log(`_playMove(${tileIndex})`);
-    // push the update to the board so it can check outcome 
-    // (invalid, valid-nonwinning, valid-winning)
-    if (GameBoard.updateBoard(tileIndex, _players[_currentPlayer])) {
-      // Based on outcome call an event
-      // If the move is valid, invoke the update board event
-      Events.invoke('boardUpdated');
-
-      // increment the turn
-      _incrementTurn();
-    }
+  function _playMove() {
+    _incrementTurn();
   }
 
   function _incrementTurn() {
     _currentPlayer = (_currentPlayer + 1) % _players.length;
-    console.log(`current player: ${_players[_currentPlayer].mark}`);
+    _turnCounter++;
+    console.log(_turnCounter);
   }
 
-  return { init };
+  return { init, getCurrentPlayer };
 })();
 
 // Get all my dom references, generate anything I need
@@ -182,8 +174,8 @@ const DOM = (function() {
     tile.setAttribute('data-tile-index', i);
     tile.addEventListener('click', onClick);
 
-    // TODO: Move event registers to a more appropriate module
-    // ? UI Triggers seems like a mostly separate concern from rendering
+    //TODO: Move event registers to a more appropriate module
+    //? UI Triggers seems like a mostly separate concern from rendering
     function onClick() {
       Events.invoke('movePlayed', [i]);
     }
@@ -194,27 +186,35 @@ const DOM = (function() {
   return { init };
 })();
 
-// * GAMEBOARD MODULE
+//* GAMEBOARD MODULE
 const GameBoard = (function(boardSize = 3) {
+  function init() {
+    Events.subscribe('movePlayed', _movePlayed);
+  }
+
+  // Not sure how to handle {get; private set;} so I'm just returning a copy
+  const getBoard = () => [..._board];
+
+  const _board = [];
+
   // there are 3 possible outcomes: invalid, continue, or game over
   //? Too many concerns?
-  function updateBoard(boardIndex, player) {
-    if (!_trySet(boardIndex, player)) {
+  function _movePlayed(boardIndex) {
+    //? Not sure it was worth moving event invocation out of GameFlow,
+    //?  if I'm still tightly coupling this... 
+    // Although maybe it's ok if "GameFlow" is a little more accessible,
+    //  since it's basically the god-module...
+    if (!_trySet(boardIndex, GameFlow.getCurrentPlayer())) {
       return false;
     }
 
     if (isGameOver()) {
-      // trigger game over stuff ... somehow
-      return '???????'; // not sure what if anything this outcome should return
+      return '???????';
     }
 
-    // TODO: invoke "board updated" event
+    Events.invoke('boardUpdated');
     return true;
   }
-  
-  const getBoard = () => [..._board];
-  
-  const _board = [];
 
   // return bool, sets board if valid
   function _trySet(boardIndex, player) {
@@ -242,7 +242,7 @@ const GameBoard = (function(boardSize = 3) {
     return false;
   }
 
-  return { updateBoard, getBoard };
+  return { init, getBoard };
 })();
 
 //* PLAYER FACTORY
