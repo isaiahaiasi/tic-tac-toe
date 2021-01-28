@@ -3,6 +3,70 @@
 // I might start with just trying to lay out the needed functionality, and split
 // it up into different modules where I see patterns and repeated functionality...
 
+// Get all my dom references, generate anything I need, and 
+const DOM = (function() {
+})();
+
+// I'd like to use a pubsub pattern to mediate between my DOM & my Logic
+// I'm trying to do it without direct reference first, so we'll see how THAT goes...
+const Events = (function() {
+  // create a new event, if one with that name doesn't already exist
+  const publish = function(eventName) { }
+
+  // call all subscribed functions
+  const invoke = function(eventName) { }
+
+  // If an event with eventname exists in the record of events, add this function to its listeners
+  const subscribe = function(eventName, func) { }
+
+  // try to remove a listener, if the named function exists in the event eventname
+  const unsubscribe = function(eventName, func) { }
+
+  // DestroyEvent(eventName) - removes event eventName from record of events, & all its listeners
+  const destroyEvent = function(eventName) { }
+
+  // record of events
+  // an event contains a name and a list of listeners
+  // functions to be called when the event is invoked
+  let _events = new Map();
+
+  // Event factory
+  const _createEvent = function(eventName) {
+    const _listeners = [];
+
+    const _containsListener = function(listener) {
+      return _listeners.includes(listener);
+    };
+
+    const getName = function() { return eventName };
+
+    const addListener = function(listener) {
+      if (_containsListener(listener)) {
+        return false;
+      }
+
+      _listeners.push(listener);
+      return true;
+    };
+
+    const removeListener = function(listener) {
+      if (_containsListener(listener)) {
+        return false;
+      }
+
+      _listeners.splice(_listeners.indexOf(listener), 1);
+      return true;
+    };
+
+    const callListeners = function() {
+      _listeners.forEach(listener => listener());
+    };
+
+    return { getName, addListener, removeListener, callListeners }
+  };
+
+  return { publish, invoke, subscribe, unsubscribe, destroyEvent };
+})();
 
 // * GAMEFLOW MODULE
 // - creates the board and gets the players
