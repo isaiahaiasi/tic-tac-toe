@@ -1,65 +1,97 @@
-// Not sure how to separate my "Logic" and "UI". MVC/MVP/MVVM/etc are kind of confusing,
-// and I'm not sure they'd be the correct direction anyway.
-// I might start with just trying to lay out the needed functionality, and split
-// it up into different modules where I see patterns and repeated functionality...
-
-// Get all my dom references, generate anything I need, and 
-const DOM = (function() {
-})();
-
 // I'd like to use a pubsub pattern to mediate between my DOM & my Logic
 // I'm trying to do it without direct reference first, so we'll see how THAT goes...
 const Events = (function() {
   // create a new event, if one with that name doesn't already exist
-  const publish = function(eventName) { }
+  const publish = function(eventName) {
+    if (_hasEvent(eventName)) {
+      console.warn(`Tried to publish ${eventName} event, but that event already exists!`);
+      return false;
+    }
+    _events.set(eventName, _createEvent(eventName));
+    return true;
+  }
 
   // call all subscribed functions
-  const invoke = function(eventName) { }
+  const invoke = function(eventName) {
+    if (!_hasEvent(eventName)) {
+      console.warn(`Tried to invoke nonexistent event ${eventName}!`);
+      return false;
+    }
+    _events.get(eventName).callListeners();
+    return true;
+  };
 
-  // If an event with eventname exists in the record of events, add this function to its listeners
-  const subscribe = function(eventName, func) { }
+  // If the event exists in _events, add this function to its listeners
+  const subscribe = function(eventName, func) {
+    if (!_hasEvent(eventName)) {
+      console.warn(`Tried to subscribe ${func} from nonexistent event ${eventName}!`);
+      return false;
+    }
+    return _events.get(eventName).addListener(func);
+  };
 
-  // try to remove a listener, if the named function exists in the event eventname
-  const unsubscribe = function(eventName, func) { }
+  // Try to remove a listener, if the function exists in the event eventname
+  const unsubscribe = function(eventName, func) {
+    if (!_hasEvent(eventName)) {
+      console.warn(`Tried to unsubscribe ${func} from nonexistent event ${eventName}!`);
+      return false;
+    }
+    return _events.get(eventName).removeListener(func);
+  };
 
-  // DestroyEvent(eventName) - removes event eventName from record of events, & all its listeners
-  const destroyEvent = function(eventName) { }
+  // Remove event from _events
+  const destroyEvent = function(eventName) {
+    if (!_events.delete(eventName)) {
+      console.warn(`tried to destroy nonexistent event ${eventName}!`);
+      return false;
+    }
+    return true;
+  };
 
-  // record of events
-  // an event contains a name and a list of listeners
   // functions to be called when the event is invoked
-  let _events = new Map();
+  const _events = new Map();
+  
+  // an event contains a name and a list of listeners
+  const _hasEvent = function(eventName) {
+    return _events.has(eventName);
+  };
 
   // Event factory
+  // (might be cool to make any argument after the first be immediately added as an event)
   const _createEvent = function(eventName) {
     const _listeners = [];
-
-    const _containsListener = function(listener) {
-      return _listeners.includes(listener);
-    };
 
     const getName = function() { return eventName };
 
     const addListener = function(listener) {
       if (_containsListener(listener)) {
+        console.warn(`tried to add listener ${listener} to ${eventName}, but it was already subscribed!`);
         return false;
       }
-
       _listeners.push(listener);
       return true;
     };
 
     const removeListener = function(listener) {
       if (_containsListener(listener)) {
+        console.warn(`tried to unsubscribe ${listener} from ${eventName}, but it isn't subscribed!`);
         return false;
       }
-
       _listeners.splice(_listeners.indexOf(listener), 1);
       return true;
     };
 
     const callListeners = function() {
+      if (_listeners.length < 1) {
+        console.warn(`Tried to invoke ${eventName}, but it did not have any listeners!`);
+        return false;
+      }
       _listeners.forEach(listener => listener());
+      return true;
+    };
+
+    const _containsListener = function(listener) {
+      return _listeners.includes(listener);
     };
 
     return { getName, addListener, removeListener, callListeners }
@@ -75,6 +107,10 @@ const Events = (function() {
 // - (the win screen should have an eventlistener that will goto 0)
 const GameFlow = (function() {
   return {};
+})();
+
+// Get all my dom references, generate anything I need, and 
+const DOM = (function() {
 })();
 
 // * GAMEBOARD MODULE
