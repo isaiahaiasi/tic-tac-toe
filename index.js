@@ -109,8 +109,43 @@ const GameFlow = (function() {
   return {};
 })();
 
-// Get all my dom references, generate anything I need, and 
+// Get all my dom references, generate anything I need
+// ... and define dom event functions??? (eg, "makeBoard" to spawn the gameboard)
 const DOM = (function() {
+  const _gameBoard = document.querySelector('.game-board');
+
+  const _boardTiles = [];
+
+  // ! (This is probably only public temporarily, for convenience)
+  const makeBoard = (boardSize = 3) => {
+    for (let i = 0; i < (boardSize * boardSize); i++) {
+      _boardTiles.push(_createBoardTile());
+    }
+    _boardTiles.forEach(tile => {
+      _gameBoard.appendChild(tile);
+    });
+  };
+
+  // "Making" a tile doesn't automatically embed it in the page
+  // i = index of the tile in the board array
+  function _createBoardTile(i) {
+    const tile = document.createElement('div');
+    tile.classList.add('tile');
+    tile.setAttribute('data-tile-index', i);
+    tile.addEventListener('click', onClick);
+
+    // TODO: Move event registers to a more appropriate module
+    // ? User Interface Triggers seems like a mostly separate concern from rendering
+    function onClick(e) {
+      // TODO: Invoke an "update board(pos)" event
+      // ! TEMP
+      tile.textContent = 'X';
+    }
+
+    return tile;
+  }
+
+  return { makeBoard };
 })();
 
 // * GAMEBOARD MODULE
@@ -174,3 +209,6 @@ const MakePlayer = (function(type) {
   let isTheirTurn = false;
   return {}
 });
+
+// ! TEMP
+DOM.makeBoard();

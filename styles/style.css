@@ -26,9 +26,6 @@ header {
 
 main {
   font-size:7em;
-  max-width: 90vw;
-  width: calc(3*var(--card-height));
-  margin:auto;
   margin-top: 1em;
 }
 
@@ -37,16 +34,19 @@ main {
   grid-template-columns: repeat(3, 1fr);
   background:var(--col-primary);
   margin:auto;
+  width: calc(3*var(--card-height));
+  max-width: 90vw;
   padding:var(--card-spacing);
   border-radius:var(--border-radius);
   box-shadow:.1em .1em .5em var(--col-base-0);
   transform:skewX(-3deg);
 }
 
-.card {
+.tile {
   margin:var(--card-spacing);
   background:var(--col-base-1);
   border-radius:var(--border-radius);
+  height:var(--card-height);
   text-align:center;
   transform:skewX(2deg);
 }
