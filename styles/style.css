@@ -8,8 +8,8 @@
 
   --border-radius:5px;
 
-  --card-height:1em;
-  --card-spacing:1.5px;
+  --card-height:1.2em;
+  --card-spacing:.07em;
 }
 
 html, body {
@@ -18,9 +18,9 @@ html, body {
 }
 
 header {
+  font-family:'Shrikhand', 'Times New Roman', Times, serif;
   text-align:center;
-  font-size:4em;
-  font-weight:bold;
+  font-size:3.5em;
   text-shadow:.05em .05em 0 var(--col-primary);
 }
 
@@ -31,24 +31,38 @@ main {
 
 .game-board {
   display: grid;
+  position: relative;
   grid-template-columns: repeat(3, 1fr);
-  background:var(--col-primary);
   margin:auto;
   width: calc(3*var(--card-height));
-  max-width: 80vw;
+  max-width: 75vw;
   padding:var(--card-spacing);
   border-radius:var(--border-radius);
-  box-shadow:.1em .1em .5em var(--col-base-0);
-  transform:skewX(-3deg);
+  transform:skewX(-10deg);
+}
+
+.game-board::after {
+  z-index: -10;
+  position:absolute;
+  content:'';
+  background:var(--col-primary);
+  top: 10%;
+  right: 10%;
+  bottom: 10%;
+  left: 10%;
+  /* box-shadow:5px 5px 0 var(--col-black); */
 }
 
 .tile {
+  font-family: 'Permanent Marker', cursive;
+  font-size: .8em;
+  text-align:center;
   margin:var(--card-spacing);
   background:var(--col-base-1);
   border-radius:var(--border-radius);
   height:var(--card-height);
-  text-align:center;
-  transform:skewX(2deg);
+  user-select: none;
+  box-shadow:5px 5px 0 var(--col-black);
 }
 
 @media only screen and (min-width:600px) {
