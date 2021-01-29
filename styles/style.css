@@ -35,7 +35,7 @@ main {
   background:var(--col-primary);
   margin:auto;
   width: calc(3*var(--card-height));
-  max-width: 90vw;
+  max-width: 80vw;
   padding:var(--card-spacing);
   border-radius:var(--border-radius);
   box-shadow:.1em .1em .5em var(--col-base-0);

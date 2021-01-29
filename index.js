@@ -10,15 +10,16 @@ const Events = (function() {
   }
 
   // call all subscribed functions
-  const invoke = function(eventName, args) {
+  const invoke = function(eventName, ...args) {
     if (!_hasEvent(eventName)) {
       console.warn(`Tried to invoke nonexistent event ${eventName}!`);
       return false;
     }
-    _events.get(eventName).callListeners(args);
+    _events.get(eventName).callListeners(...args);
     return true;
   };
 
+  //TODO: Use Spread operator to allow multiple functions to be passed as arguments
   // If the event exists in _events, add this function to its listeners
   const subscribe = function(eventName, func) {
     if (!_hasEvent(eventName)) {
@@ -77,7 +78,7 @@ const Events = (function() {
       return true;
     };
 
-    const callListeners = function(args) {
+    const callListeners = function(...args) {
       if (_listeners.length < 1) {
         console.warn(`Tried to invoke ${eventName}, but it did not have any listeners!`);
         return false;
@@ -98,11 +99,12 @@ const Events = (function() {
 
 const GameFlow = (function() {
   function init() {
-    Events.publish('movePlayed');
-    Events.publish('boardUpdated');
+    const _boardSize = 3;
+    Events.publish('movePlayed'); // Passes an XY object
+    Events.publish('boardUpdated'); // Does not pass an argument
     Events.subscribe('boardUpdated', _playMove);
-    GameBoard.init();
-    DOM.init();
+    GameBoard.init(_boardSize);
+    DOM.init(_boardSize);
 
     _players.push(CreatePlayer('X'));
     _players.push(CreatePlayer('O'));
@@ -132,8 +134,8 @@ const GameFlow = (function() {
 })();
 
 const DOM = (function() {
-  function init() {
-    _createBoard();
+  function init(boardSize) {
+    _createBoard(boardSize);
     Events.subscribe('boardUpdated', _updateBoard);
   }
 
@@ -141,61 +143,75 @@ const DOM = (function() {
 
   const _boardTiles = [];
 
-  function _createBoard(boardSize = 3) {
-    for (let i = 0; i < (boardSize * boardSize); i++) {
-      _boardTiles.push(_createBoardTile(i));
+  function _createBoard(boardSize) {
+
+    for (let x = 0; x < boardSize; x++) {
+      for (let y = 0; y < boardSize; y++) {
+        _boardTiles.push(_createBoardTile(x, y));
+      }
     }
     _boardTiles.forEach(tile => {
-      _gameBoard.appendChild(tile);
+      _gameBoard.appendChild(tile.node);
     });
+  }
+
+  const _createBoardTile = function(x, y) {
+    const xy = CreateXY(x,y);
+    const node = document.createElement('div');
+
+    node.classList.add('tile');
+    node.addEventListener('click', onClick);
+
+    //TODO: Move event registers to a more appropriate module?
+    // (UI triggers seems like a mostly separate concern from rendering)
+    function onClick() {
+      Events.invoke('movePlayed', xy);
+    }
+
+    return { xy, node };
   }
 
   function _updateBoard() {
     //? Could maybe use Dependency Injection thru event, 
     //? instead of directly interfacing w GameBoard module?
-    const newState = GameBoard.getBoard();
-    for (let i = 0; i < newState.length; i++) {
-      const mark = newState[i] ? newState[i].mark :'';
-      _boardTiles[i].textContent = mark;
-    }
-  }
-
-  function _createBoardTile(boardIndex) {
-    const tile = document.createElement('div');
-    tile.classList.add('tile');
-    tile.addEventListener('click', onClick);
-
-    //TODO: Move event registers to a more appropriate module?
-    // (UI triggers seems like a mostly separate concern from rendering)
-    function onClick() {
-      Events.invoke('movePlayed', [boardIndex]);
-    }
-
-    return tile;
+    const newBoardState = GameBoard.getBoard();
+    _boardTiles.forEach(tile => {
+      const boardStateTile = newBoardState[tile.xy.x][tile.xy.y];
+      tile.node.textContent =  boardStateTile ? boardStateTile.mark : '';
+    });
   }
 
   return { init };
 })();
 
-const GameBoard = (function(boardSize = 3) {
-  function init() {
+const GameBoard = (function() {
+  //TODO: Find a decent resource for how to declare an empty 2d array...
+  const _board = [];
+
+  function init(boardSize) {
+    _boardSize = boardSize;
+    for(let i = 0; i < _boardSize; i++) {
+      _board.push([]);
+    }
     Events.subscribe('movePlayed', _movePlayed);
   }
 
   // Not sure how to handle {get; private set;} so I'm just returning a copy
-  const getBoard = () => [..._board];
+  const getBoard = () => _board;
 
-  const _board = [];
+  function getXYFromIndex(i) {
+    return CreateXY(Math.floor(i / _boardSize), i % _boardSize);
+  }
 
-  function _movePlayed(boardIndex) {
+  function _movePlayed(xy) {
     //? Not sure it was worth moving event invocation out of GameFlow,
     //?  if I'm still tightly coupling this
     // Especially bc there will be more logic around WHICH player once I have AI vs HUMAN...
-    if (!_trySet(boardIndex, GameFlow.getCurrentPlayer())) {
+    if (!_trySet(xy, GameFlow.getCurrentPlayer())) {
       return false;
     }
 
-    if (isGameOver()) {
+    if (_isGameOver(xy)) {
       return '???????';
     }
 
@@ -203,32 +219,23 @@ const GameBoard = (function(boardSize = 3) {
     return true;
   }
 
-  function _trySet(boardIndex, player) {
-    if (_board[boardIndex]) {
+  function _trySet(xy, player) {
+    if (_board[xy.x][xy.y]) {
       return false;
     }
 
-    _board[boardIndex] = player;
+    _board[xy.x][xy.y] = player;
     return true;
   }
 
-  function _xy(boardIndex) {
-    return {
-      // x: [0, 1, 2] = 0, [3, 4, 5] = 1, etc
-      x: Math.floor(boardIndex / boardSize),
-      // y: [0, 3, 6] = 0, [1, 4, 7] = 1, etc
-      y: boardIndex % boardSize,
-    };
-  }
-  
-  function isGameOver() {
-    // Check horizontal
-    // Check vertical
+  function _isGameOver(xy) {
+    // Check row
+    // Check column
     // Check both diagonal directions
     return false;
   }
 
-  return { init, getBoard };
+  return { init, getBoard, getXYFromIndex };
 })();
 
 //? not sure if I should use inheritance for player(human) + player(npc)...
@@ -237,5 +244,11 @@ const CreatePlayer = (function(mark) {
   return { mark };
 });
 
+// This feels like over-architecting
+const CreateXY = (function(x, y) {
+  const xy = { x, y };
+  Object.freeze(xy);
+  return xy;
+});
 
 GameFlow.init();
