@@ -198,9 +198,10 @@ const DOM = (function() {
 })();
 
 const GameBoard = (function() {
+  let _boardSize;
+
   //TODO: Find a decent resource for how to declare an empty 2d array...
   const _board = [];
-  let _boardSize;
 
   function init(boardSize) {
     _boardSize = boardSize;
@@ -208,6 +209,7 @@ const GameBoard = (function() {
       _board.push([]);
     }
     Events.subscribe('movePlayed', _movePlayed);
+    GameOverChecker.init();
   }
 
   // Not sure how to handle {get; private set;} so I'm just returning a copy
@@ -226,7 +228,7 @@ const GameBoard = (function() {
       return false;
     }
 
-    if (_isGameOver(xy, player)) {
+    if (GameOverChecker.isGameOver(xy, player)) {
       console.log('winner winner chicken dinner!');
       Events.invoke('gameOver', player);
     }
@@ -244,8 +246,25 @@ const GameBoard = (function() {
     return true;
   }
 
-  function _isGameOver(xy, player) {
-    const columnCondition = () => {
+  // This was getting unwieldy enought that I wanted to encapsulate it
+  const GameOverChecker = (function() {
+    let _diagonalFallingPositions = [];
+    let _diagonalRisingPositions = [];
+
+    function init() {
+      _diagonalFallingPositions = _getDiagonalFallingPositions();
+      _diagonalRisingPositions = _getDiagonalRisingPositions();
+    }
+
+    function isGameOver(xy, player) {
+      return (
+        _getColumnWinner(xy, player) ||
+        _getRowWinner(xy, player) ||
+        _getDiagonalWinner(player)
+      );
+    }
+
+    function _getColumnWinner(xy, player) {
       for (let i = 0; i < _boardSize; i++) {
         if (!_board[xy.x] || !_board[xy.x][i] || _board[xy.x][i] !== player) {
           console.log(`Failed column win check @ ${xy.x},${i}`);
@@ -253,9 +272,9 @@ const GameBoard = (function() {
         }
       }
       return true;
-    };
+    }
 
-    const rowCondition = () => {
+    function _getRowWinner(xy, player) {
       for (let i =0; i < _boardSize; i++) {
         if (!_board[i] || !_board[i][xy.y] || _board[i][xy.y] !== player) {
           console.log(`Failed row win check @ ${i},${xy.y}`);
@@ -263,14 +282,53 @@ const GameBoard = (function() {
         }
       }
       return true;
-    };
+    }
 
-    const diagonalCondition = () => {
-      return false;
-    };
-    // Check both diagonal directions
-    return columnCondition() || rowCondition() || diagonalCondition();
-  }
+    function _getDiagonalWinner(player) {
+      return (
+        _checkWinnerInXYSet(_diagonalFallingPositions, player) ||
+        _checkWinnerInXYSet(_diagonalRisingPositions, player)
+      );
+    }
+
+    function _checkWinnerInXYSet(positions, player) {
+      for(let i = 0; i < positions.length; i++) {
+        const pos = positions[i];
+        if (_board[pos.x][pos.y] !== player) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    // Falling diagonal = "\" ([0,0], [1,1], etc)
+    function _getDiagonalFallingPositions() {
+      const diagonalPositions = [];
+      for (let y = 0; y < _boardSize; y++) {
+        for (let x = 0; x < _boardSize; x++){
+          if (x === y) {
+            diagonalPositions.push(CreateXY(x,y));
+          }
+        }
+      }
+      return diagonalPositions;
+    }
+
+    // Rising diagonal = "/" ([0, _boardSize - 1], [1, _boardSize - 2], etc)
+    function _getDiagonalRisingPositions() {
+      const diagonalPositions = [];
+      for (let y = 0; y < _boardSize; y++) {
+        for (let x = 0; x < _boardSize; x++){
+          if ((x + y + 1) === _boardSize) {
+            diagonalPositions.push(CreateXY(x,y));
+          }
+        }
+      }
+      return diagonalPositions;
+    }
+
+    return { init, isGameOver };
+  })();
 
   return { init, getBoard, getXYFromIndex };
 })();
