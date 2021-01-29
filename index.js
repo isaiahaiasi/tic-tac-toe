@@ -102,6 +102,7 @@ const GameFlow = (function() {
     const _boardSize = 3;
     Events.publish('movePlayed'); // Passes an XY object
     Events.publish('boardUpdated'); // Does not pass an argument
+    Events.publish('gameOver'); // Passes the winning player
     Events.subscribe('boardUpdated', _playMove);
     GameBoard.init(_boardSize);
     DOM.init(_boardSize);
@@ -137,6 +138,7 @@ const DOM = (function() {
   function init(boardSize) {
     _createBoard(boardSize);
     Events.subscribe('boardUpdated', _updateBoard);
+    Events.subscribe('gameOver', _displayGameOverScreen);
   }
 
   const _gameBoard = document.querySelector('.game-board');
@@ -160,15 +162,19 @@ const DOM = (function() {
     const node = document.createElement('div');
 
     node.classList.add('tile');
-    node.addEventListener('click', onClick);
+    node.addEventListener('click', _onClick);
 
     //TODO: Move event registers to a more appropriate module?
     // (UI triggers seems like a mostly separate concern from rendering)
-    function onClick() {
+    function _onClick() {
       Events.invoke('movePlayed', xy);
     }
 
-    return { xy, node };
+    function clearEventListener() {
+      node.removeEventListener('click', _onClick);
+    }
+
+    return { xy, node, clearEventListener };
   }
 
   function _updateBoard() {
@@ -179,6 +185,13 @@ const DOM = (function() {
       const newTileState = newBoardState[tile.xy.x][tile.xy.y];
       tile.node.textContent =  newTileState ? newTileState.mark : '';
     });
+  }
+
+  function _displayGameOverScreen(winningPlayer) {
+    console.log(`congratulations, ${winningPlayer.mark}!`);
+    _boardTiles.forEach(tile => {
+      tile.clearEventListener();
+    })
   }
 
   return { init };
@@ -215,7 +228,7 @@ const GameBoard = (function() {
 
     if (_isGameOver(xy, player)) {
       console.log('winner winner chicken dinner!');
-      return '???????';
+      Events.invoke('gameOver', player);
     }
 
     Events.invoke('boardUpdated');
