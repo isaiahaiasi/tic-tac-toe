@@ -145,8 +145,8 @@ const DOM = (function() {
 
   function _createBoard(boardSize) {
 
-    for (let x = 0; x < boardSize; x++) {
-      for (let y = 0; y < boardSize; y++) {
+    for (let y = 0; y < boardSize; y++) {
+      for (let x = 0; x < boardSize; x++) {
         _boardTiles.push(_createBoardTile(x, y));
       }
     }
@@ -176,8 +176,8 @@ const DOM = (function() {
     //? instead of directly interfacing w GameBoard module?
     const newBoardState = GameBoard.getBoard();
     _boardTiles.forEach(tile => {
-      const boardStateTile = newBoardState[tile.xy.x][tile.xy.y];
-      tile.node.textContent =  boardStateTile ? boardStateTile.mark : '';
+      const newTileState = newBoardState[tile.xy.x][tile.xy.y];
+      tile.node.textContent =  newTileState ? newTileState.mark : '';
     });
   }
 
@@ -187,6 +187,7 @@ const DOM = (function() {
 const GameBoard = (function() {
   //TODO: Find a decent resource for how to declare an empty 2d array...
   const _board = [];
+  let _boardSize;
 
   function init(boardSize) {
     _boardSize = boardSize;
@@ -207,11 +208,13 @@ const GameBoard = (function() {
     //? Not sure it was worth moving event invocation out of GameFlow,
     //?  if I'm still tightly coupling this
     // Especially bc there will be more logic around WHICH player once I have AI vs HUMAN...
-    if (!_trySet(xy, GameFlow.getCurrentPlayer())) {
+    const player = GameFlow.getCurrentPlayer()
+    if (!_trySet(xy, player)) {
       return false;
     }
 
-    if (_isGameOver(xy)) {
+    if (_isGameOver(xy, player)) {
+      console.log('winner winner chicken dinner!');
       return '???????';
     }
 
@@ -228,11 +231,32 @@ const GameBoard = (function() {
     return true;
   }
 
-  function _isGameOver(xy) {
-    // Check row
-    // Check column
+  function _isGameOver(xy, player) {
+    const columnCondition = () => {
+      for (let i = 0; i < _boardSize; i++) {
+        if (!_board[xy.x] || !_board[xy.x][i] || _board[xy.x][i] !== player) {
+          console.log(`Failed column win check @ ${xy.x},${i}`);
+          return false;
+        }
+      }
+      return true;
+    };
+
+    const rowCondition = () => {
+      for (let i =0; i < _boardSize; i++) {
+        if (!_board[i] || !_board[i][xy.y] || _board[i][xy.y] !== player) {
+          console.log(`Failed row win check @ ${i},${xy.y}`);
+          return false;
+        }
+      }
+      return true;
+    };
+
+    const diagonalCondition = () => {
+      return false;
+    };
     // Check both diagonal directions
-    return false;
+    return columnCondition() || rowCondition() || diagonalCondition();
   }
 
   return { init, getBoard, getXYFromIndex };
