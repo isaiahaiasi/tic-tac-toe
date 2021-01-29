@@ -98,8 +98,8 @@ const Events = (function() {
 })();
 
 const GameFlow = (function() {
+  const _boardSize = 3;
   function init() {
-    const _boardSize = 3;
     Events.publish('movePlayed'); // Passes an XY object
     Events.publish('boardUpdated'); // Does not pass an argument
     Events.publish('gameOver'); // Passes the winning player
@@ -129,6 +129,10 @@ const GameFlow = (function() {
     _currentPlayer = (_currentPlayer + 1) % _players.length;
     _turnCounter++;
     console.log(_turnCounter);
+    if (_turnCounter >= _boardSize * _boardSize) {
+      Events.invoke('gameOver', null);
+      console.log('IT\'s A TIE!!!');
+    }
   }
 
   return { init, getCurrentPlayer };
@@ -188,10 +192,15 @@ const DOM = (function() {
   }
 
   function _displayGameOverScreen(winningPlayer) {
-    console.log(`congratulations, ${winningPlayer.mark}!`);
-    _boardTiles.forEach(tile => {
-      tile.clearEventListener();
-    })
+    if (winningPlayer) {
+      console.log(`congratulations, ${winningPlayer.mark}!`);
+      _boardTiles.forEach(tile => {
+        tile.clearEventListener();
+      });
+    } else {
+      console.log('dom says... it\'s a tie????');
+    }
+    
   }
 
   return { init };
