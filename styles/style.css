@@ -45,6 +45,7 @@ a, a:visited {
 }
 
 .game-board {
+  box-sizing:border-box;
   display: grid;
   position: relative;
   grid-template-columns: repeat(3, 1fr);
@@ -78,6 +79,25 @@ a, a:visited {
   height:var(--card-height);
   user-select: none;
   box-shadow:5px 5px 0 var(--col-black);
+}
+
+.bg {
+  z-index:var(--z-bg);
+  position:absolute;
+  top:0;
+  width:100%;
+  height:100%;
+}
+
+.bg::before {
+  content:'';
+  box-sizing:border-box;
+  border: solid 1px var(--col-primary);
+  box-shadow: inset 0 0 200vw var(--col-primary);
+  position:absolute;
+  top:0;
+  width:100%;
+  height:100%;
 }
 
 @media only screen and (min-width:600px) {
