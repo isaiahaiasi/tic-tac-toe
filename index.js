@@ -103,53 +103,57 @@ const Events = (function EventHandler() {
 //* GAME MODEL / LOGIC
 const GameFlow = (function ModelGameFlow() {
   const _boardSize = 3;
+  let _players = [];
+  let _currentPlayer;
+  let _turnCounter;
+
   function init() {
-    initModeStart();
-  }
-
-  function initModeStart() {
-    Events.publish('startButtonPressed'); //args: string 'pvp' or 'pve'
-    Events.subscribe('startButtonPressed', initModeGame);
-    StartView.init();
-  }
-
-  function initModeGame() {
-    StartView.clearView();
-    Events.publish('movePlayed');   //args: an XY object
-    Events.publish('boardUpdated'); //args: bool if game over
-    Events.publish('gameOver');     //args: the winning player
-    Events.subscribe('boardUpdated', _incrementTurn);
-    Events.subscribe('gameOver', initModeEnd);
-    GameBoard.init(_boardSize);
-    BoardView.init(_boardSize);
-
-    _players.push(CreatePlayer('X'));
-    _players.push(CreatePlayer('O'));
-    _currentPlayer = 0;
-    _turnCounter = 0;
-  }
-
-  function initModeEnd(winningPlayer) {
-    Events.publish('restart');
-    Events.subscribe('restart', restart);
-    EndView.init(winningPlayer);
-    console.log(`winning player: ${winningPlayer.mark}`);
-  }
-
-  function restart() {
-    EndView.clearView();
-    BoardView.clearView();
-    Events.resetEvents();
-    init();
+    _initModeStart();
   }
 
   function getCurrentPlayer() {
     return _players[_currentPlayer];
   }
 
-  const _players = [];
-  let _currentPlayer;
-  let _turnCounter;
+  function _initModeStart() {
+    Events.publish('startButtonPressed'); //args: string 'pvp' or 'pve'
+    Events.subscribe('startButtonPressed', _initModeGame);
+    StartView.init();
+  }
+
+  function _initModeGame() {
+    StartView.clearView();
+    Events.publish('movePlayed');   //args: an XY object
+    Events.publish('boardUpdated'); //args: bool if game over
+    Events.publish('gameOver');     //args: the winning player
+    Events.subscribe('boardUpdated', _incrementTurn);
+    Events.subscribe('gameOver', _initModeEnd);
+    GameBoard.init(_boardSize);
+    BoardView.init(_boardSize);
+    _initializePlayers();
+  }
+
+  function _initModeEnd(winningPlayer) {
+    Events.publish('restart');
+    Events.subscribe('restart', _restart);
+    EndView.init(winningPlayer);
+    console.log(`winning player: ${winningPlayer.mark}`);
+  }
+
+  function _restart() {
+    EndView.clearView();
+    BoardView.clearView();
+    Events.resetEvents();
+    init();
+  }
+
+  function _initializePlayers() {
+    _players = [];
+    _players.push(CreatePlayer('X'));
+    _players.push(CreatePlayer('O'));
+    _currentPlayer = 0;
+    _turnCounter = 0;
+  }
 
   function _incrementTurn(isGameOver) {
     _currentPlayer = (_currentPlayer + 1) % _players.length;
