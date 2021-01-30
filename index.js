@@ -1,4 +1,5 @@
-const Events = (function() {
+//* CUSTOM EVENT HANDLER
+const Events = (function EventHandler() {
   // create a new event, if one with that name doesn't already exist
   const publish = function(eventName) {
     if (_hasEvent(eventName)) {
@@ -97,15 +98,16 @@ const Events = (function() {
   return { publish, invoke, subscribe, unsubscribe, destroyEvent };
 })();
 
-const GameFlow = (function() {
+//* GAME MODEL / LOGIC
+const GameFlow = (function ModelGameFlow() {
   const _boardSize = 3;
   function init() {
-    Events.publish('movePlayed'); // Passes an XY object
-    Events.publish('boardUpdated'); // Does not pass an argument
-    Events.publish('gameOver'); // Passes the winning player
+    Events.publish('movePlayed');   //args: an XY object
+    Events.publish('boardUpdated'); //args: none
+    Events.publish('gameOver');     //args: the winning player
     Events.subscribe('boardUpdated', _playMove);
     GameBoard.init(_boardSize);
-    DOM.init(_boardSize);
+    BoardView.init(_boardSize);
 
     _players.push(CreatePlayer('X'));
     _players.push(CreatePlayer('O'));
@@ -128,7 +130,7 @@ const GameFlow = (function() {
   function _incrementTurn() {
     _currentPlayer = (_currentPlayer + 1) % _players.length;
     _turnCounter++;
-    console.log(_turnCounter);
+    //! ERROR: This will still trigger, even if final turn is winning move!
     if (_turnCounter >= _boardSize * _boardSize) {
       Events.invoke('gameOver', null);
       console.log('IT\'s A TIE!!!');
@@ -138,90 +140,25 @@ const GameFlow = (function() {
   return { init, getCurrentPlayer };
 })();
 
-const DOM = (function() {
-  function init(boardSize) {
-    _createBoard(boardSize);
-    Events.subscribe('boardUpdated', _updateBoard);
-    Events.subscribe('gameOver', _displayGameOverScreen);
-  }
 
-  const _gameBoard = document.querySelector('.game-board');
-
-  const _boardTiles = [];
-
-  function _createBoard(boardSize) {
-
-    for (let y = 0; y < boardSize; y++) {
-      for (let x = 0; x < boardSize; x++) {
-        _boardTiles.push(_createBoardTile(x, y));
-      }
-    }
-    _boardTiles.forEach(tile => {
-      _gameBoard.appendChild(tile.node);
-    });
-  }
-
-  const _createBoardTile = function(x, y) {
-    const xy = CreateXY(x,y);
-    const node = document.createElement('div');
-
-    node.classList.add('tile');
-    node.addEventListener('click', _onClick);
-
-    //TODO: Move event registers to a more appropriate module?
-    // (UI triggers seems like a mostly separate concern from rendering)
-    function _onClick() {
-      Events.invoke('movePlayed', xy);
-    }
-
-    function clearEventListener() {
-      node.removeEventListener('click', _onClick);
-    }
-
-    return { xy, node, clearEventListener };
-  }
-
-  function _updateBoard() {
-    //? Could maybe use Dependency Injection thru event, 
-    //? instead of directly interfacing w GameBoard module?
-    const newBoardState = GameBoard.getBoard();
-    _boardTiles.forEach(tile => {
-      const newTileState = newBoardState[tile.xy.x][tile.xy.y];
-      tile.node.textContent =  newTileState ? newTileState.mark : '';
-    });
-  }
-
-  function _displayGameOverScreen(winningPlayer) {
-    if (winningPlayer) {
-      console.log(`congratulations, ${winningPlayer.mark}!`);
-      _boardTiles.forEach(tile => {
-        tile.clearEventListener();
-      });
-    } else {
-      console.log('dom says... it\'s a tie????');
-    }
-    
-  }
-
-  return { init };
-})();
-
-const GameBoard = (function() {
+const GameBoard = (function ModelGameBoard() {
   let _boardSize;
 
-  //TODO: Find a decent resource for how to declare an empty 2d array...
   const _board = [];
-
+  
   function init(boardSize) {
     _boardSize = boardSize;
+
+    //TODO: How to properly initialize a 2D array?
     for(let i = 0; i < _boardSize; i++) {
       _board.push([]);
     }
+
     Events.subscribe('movePlayed', _movePlayed);
     GameOverChecker.init();
   }
 
-  // Not sure how to handle {get; private set;} so I'm just returning a copy
+  //TODO: research proper getters--I don't want to allow _board to be mutated
   const getBoard = () => _board;
 
   function getXYFromIndex(i) {
@@ -229,10 +166,8 @@ const GameBoard = (function() {
   }
 
   function _movePlayed(xy) {
-    //? Not sure it was worth moving event invocation out of GameFlow,
-    //?  if I'm still tightly coupling this
-    // Especially bc there will be more logic around WHICH player once I have AI vs HUMAN...
     const player = GameFlow.getCurrentPlayer()
+
     if (!_trySet(xy, player)) {
       return false;
     }
@@ -255,8 +190,7 @@ const GameBoard = (function() {
     return true;
   }
 
-  // This was getting unwieldy enought that I wanted to encapsulate it
-  const GameOverChecker = (function() {
+  const GameOverChecker = (function GameBoardCheckGameOver() {
     let _diagonalFallingPositions = [];
     let _diagonalRisingPositions = [];
 
@@ -276,7 +210,6 @@ const GameBoard = (function() {
     function _getColumnWinner(xy, player) {
       for (let i = 0; i < _boardSize; i++) {
         if (!_board[xy.x] || !_board[xy.x][i] || _board[xy.x][i] !== player) {
-          console.log(`Failed column win check @ ${xy.x},${i}`);
           return false;
         }
       }
@@ -286,7 +219,6 @@ const GameBoard = (function() {
     function _getRowWinner(xy, player) {
       for (let i =0; i < _boardSize; i++) {
         if (!_board[i] || !_board[i][xy.y] || _board[i][xy.y] !== player) {
-          console.log(`Failed row win check @ ${i},${xy.y}`);
           return false;
         }
       }
@@ -335,24 +267,96 @@ const GameBoard = (function() {
       }
       return diagonalPositions;
     }
-
+    
     return { init, isGameOver };
   })();
 
   return { init, getBoard, getXYFromIndex };
 })();
 
-//? not sure if I should use inheritance for player(human) + player(npc)...
-const CreatePlayer = (function(mark) {
-  //TODO: Not sure yet what player-specific functionality I'd need...
-  return { mark };
-});
+//* MODULES FOR MANIPULATING THE DOM
+const BoardView = (function ViewBoard() {
+  const _gameBoard = document.querySelector('.game-board');
+  const _boardTiles = [];
 
-// This feels like over-architecting
-const CreateXY = (function(x, y) {
+  function init(boardSize) {
+    _generateBoard(boardSize);
+    Events.subscribe('boardUpdated', _updateBoard);
+    Events.subscribe('gameOver', _displayGameOverScreen);
+  }
+
+  function _generateBoard(boardSize) {
+    for (let y = 0; y < boardSize; y++) {
+      for (let x = 0; x < boardSize; x++) {
+        _boardTiles.push(_createBoardTile(x, y));
+      }
+    }
+
+    _boardTiles.forEach(tile => {
+      _gameBoard.appendChild(tile.node);
+    });
+  }
+
+  const _createBoardTile = function(x, y) {
+    const xy = CreateXY(x,y);
+    const node = document.createElement('div');
+
+    node.classList.add('tile');
+    node.addEventListener('click', _onClick);
+
+    //? Move UI event triggers to a more appropriate module?
+    function _onClick() {
+      Events.invoke('movePlayed', xy);
+    }
+
+    function clearEventListener() {
+      node.removeEventListener('click', _onClick);
+    }
+
+    return { xy, node, clearEventListener };
+  }
+
+  //TODO: This should only re-render the tiles that have actually changed
+  //TODO: (if I want to render a large number of tiles)
+  function _updateBoard() {
+    //? Could maybe use Dependency Injection thru event, 
+    //? instead of directly interfacing w GameBoard module?
+    const newBoardState = GameBoard.getBoard();
+
+    _boardTiles.forEach(tile => {
+      const newTileState = newBoardState[tile.xy.x][tile.xy.y];
+      tile.node.textContent =  newTileState ? newTileState.mark : '';
+    });
+  }
+
+  function _displayGameOverScreen(winningPlayer) {
+    if (winningPlayer) {
+      console.log(`congratulations, ${winningPlayer.mark}!`);
+      _boardTiles.forEach(tile => {
+        tile.clearEventListener();
+      });
+    } else {
+      console.log('dom says... it\'s a tie????');
+    }
+  }
+
+  return { init };
+})();
+
+const StartView = (function ViewStart() { })();
+
+const EndView = (function ViewEnd() { })();
+
+//* FACTORIES NOT CONTAINED WITHIN A SPECIFIC MODULE
+const CreateXY = (function XY(x, y) {
   const xy = { x, y };
   Object.freeze(xy);
   return xy;
+});
+
+//! STUB
+const CreatePlayer = (function Player(mark) {
+  return { mark };
 });
 
 GameFlow.init();
