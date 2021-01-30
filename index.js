@@ -48,6 +48,8 @@ const Events = (function EventHandler() {
     return true;
   };
 
+  const resetEvents = () => _events.clear();
+
   // functions to be called when the event is invoked
   const _events = new Map();
   
@@ -95,17 +97,29 @@ const Events = (function EventHandler() {
     return { getName, addListener, removeListener, callListeners }
   };
 
-  return { publish, invoke, subscribe, unsubscribe, destroyEvent };
+  return { publish, invoke, subscribe, unsubscribe, destroyEvent, resetEvents };
 })();
 
 //* GAME MODEL / LOGIC
 const GameFlow = (function ModelGameFlow() {
   const _boardSize = 3;
   function init() {
+    initModeStart();
+  }
+
+  function initModeStart() {
+    Events.publish('startButtonPressed'); //args: string 'pvp' or 'pve'
+    Events.subscribe('startButtonPressed', initModeGame);
+    StartView.init();
+  }
+
+  function initModeGame() {
+    StartView.clearView();
     Events.publish('movePlayed');   //args: an XY object
-    Events.publish('boardUpdated'); //args: none
+    Events.publish('boardUpdated'); //args: bool if game over
     Events.publish('gameOver');     //args: the winning player
-    Events.subscribe('boardUpdated', _playMove);
+    Events.subscribe('boardUpdated', _incrementTurn);
+    Events.subscribe('gameOver', initModeEnd);
     GameBoard.init(_boardSize);
     BoardView.init(_boardSize);
 
@@ -113,6 +127,20 @@ const GameFlow = (function ModelGameFlow() {
     _players.push(CreatePlayer('O'));
     _currentPlayer = 0;
     _turnCounter = 0;
+  }
+
+  function initModeEnd(winningPlayer) {
+    Events.publish('restart');
+    Events.subscribe('restart', restart);
+    EndView.init(winningPlayer);
+    console.log(`winning player: ${winningPlayer.mark}`);
+  }
+
+  function restart() {
+    EndView.clearView();
+    BoardView.clearView();
+    Events.resetEvents();
+    init();
   }
 
   function getCurrentPlayer() {
@@ -123,15 +151,11 @@ const GameFlow = (function ModelGameFlow() {
   let _currentPlayer;
   let _turnCounter;
 
-  function _playMove() {
-    _incrementTurn();
-  }
-
-  function _incrementTurn() {
+  function _incrementTurn(isGameOver) {
     _currentPlayer = (_currentPlayer + 1) % _players.length;
     _turnCounter++;
-    //! ERROR: This will still trigger, even if final turn is winning move!
-    if (_turnCounter >= _boardSize * _boardSize) {
+    
+    if (!isGameOver && _turnCounter >= (_boardSize * _boardSize)) {
       Events.invoke('gameOver', null);
       console.log('IT\'s A TIE!!!');
     }
@@ -143,10 +167,10 @@ const GameFlow = (function ModelGameFlow() {
 
 const GameBoard = (function ModelGameBoard() {
   let _boardSize;
-
-  const _board = [];
+  let _board;
   
   function init(boardSize) {
+    _board = [];
     _boardSize = boardSize;
 
     //TODO: How to properly initialize a 2D array?
@@ -167,18 +191,19 @@ const GameBoard = (function ModelGameBoard() {
 
   function _movePlayed(xy) {
     const player = GameFlow.getCurrentPlayer()
+    let isGameOver = false;
 
     if (!_trySet(xy, player)) {
-      return false;
+      return;
     }
 
     if (GameOverChecker.isGameOver(xy, player)) {
       console.log('winner winner chicken dinner!');
       Events.invoke('gameOver', player);
+      isGameOver = true;
     }
 
-    Events.invoke('boardUpdated');
-    return true;
+    Events.invoke('boardUpdated', isGameOver);
   }
 
   function _trySet(xy, player) {
@@ -274,10 +299,34 @@ const GameBoard = (function ModelGameBoard() {
   return { init, getBoard, getXYFromIndex };
 })();
 
+
 //* MODULES FOR MANIPULATING THE DOM
+const View = (function View() {
+  const _main = document.querySelector('main');
+
+  function getMain() {
+    return _main;
+  }
+
+  function createFromTemplate(templateSelector, contentSelector) {
+    const viewTemplate = document.querySelector(templateSelector).content;
+    return viewTemplate.querySelector(contentSelector).cloneNode(true);
+  }
+
+  function assignButton(container, buttonSelector, func) {
+    const btn = container.querySelector(buttonSelector);
+    btn.addEventListener('click', func);
+    return btn;
+  }
+
+  const clearView = (viewContainer) => viewContainer?.remove();
+
+  return { getMain, createFromTemplate, assignButton, clearView };
+})();
+
 const BoardView = (function ViewBoard() {
-  const _gameBoard = document.querySelector('.game-board');
-  const _boardTiles = [];
+  let _boardTiles = [];
+  let _boardContainer;
 
   function init(boardSize) {
     _generateBoard(boardSize);
@@ -285,7 +334,15 @@ const BoardView = (function ViewBoard() {
     Events.subscribe('gameOver', _displayGameOverScreen);
   }
 
+  function clearView() {
+    View.clearView(_boardContainer);
+    _boardTiles = [];
+  }
+
   function _generateBoard(boardSize) {
+    _boardContainer = document.createElement('div');
+    _boardContainer.classList.add('game-board');
+
     for (let y = 0; y < boardSize; y++) {
       for (let x = 0; x < boardSize; x++) {
         _boardTiles.push(_createBoardTile(x, y));
@@ -293,8 +350,10 @@ const BoardView = (function ViewBoard() {
     }
 
     _boardTiles.forEach(tile => {
-      _gameBoard.appendChild(tile.node);
+      _boardContainer.appendChild(tile.node);
     });
+
+    View.getMain().appendChild(_boardContainer);
   }
 
   const _createBoardTile = function(x, y) {
@@ -331,7 +390,6 @@ const BoardView = (function ViewBoard() {
 
   function _displayGameOverScreen(winningPlayer) {
     if (winningPlayer) {
-      console.log(`congratulations, ${winningPlayer.mark}!`);
       _boardTiles.forEach(tile => {
         tile.clearEventListener();
       });
@@ -340,12 +398,46 @@ const BoardView = (function ViewBoard() {
     }
   }
 
-  return { init };
+  return { init, clearView };
 })();
 
-const StartView = (function ViewStart() { })();
+const StartView = (function ViewStart() {
+  let viewContainer;
 
-const EndView = (function ViewEnd() { })();
+  function init() {
+    viewContainer = View.createFromTemplate('#start-tmpl', '#start-menu');
+    View.assignButton(viewContainer, '#btn-start-pvp', invokeStartPvP);
+    
+    function invokeStartPvP() {
+      Events.invoke('startButtonPressed');
+    }
+
+    document.querySelector('main').appendChild(viewContainer);
+  }
+
+  const clearView = () => View.clearView(viewContainer);
+
+  return { init, clearView };
+})();
+
+const EndView = (function ViewEnd() {
+  let viewContainer;
+  function init(winningPlayer) {
+    viewContainer = View.createFromTemplate('#end-tmpl', '#end-menu');
+    viewContainer.querySelector('a').textContent = winningPlayer.mark;
+    View.assignButton(viewContainer, 'button', invokeRestart)
+
+    document.querySelector('main').appendChild(viewContainer);
+  }
+
+  function invokeRestart() {
+    Events.invoke('restart');
+  }
+
+  const clearView = () => View.clearView(viewContainer);
+
+  return {init, clearView};
+})();
 
 //* FACTORIES NOT CONTAINED WITHIN A SPECIFIC MODULE
 const CreateXY = (function XY(x, y) {
@@ -354,7 +446,7 @@ const CreateXY = (function XY(x, y) {
   return xy;
 });
 
-//! STUB
+//! STUB?
 const CreatePlayer = (function Player(mark) {
   return { mark };
 });
