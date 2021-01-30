@@ -104,7 +104,7 @@ const Events = (function EventHandler() {
 const GameFlow = (function ModelGameFlow() {
   const _boardSize = 3;
   let _players = [];
-  let _currentPlayer;
+  let _currentPlayerIndex;
   let _turnCounter;
 
   function init() {
@@ -112,7 +112,11 @@ const GameFlow = (function ModelGameFlow() {
   }
 
   function getCurrentPlayer() {
-    return _players[_currentPlayer];
+    return _players[_currentPlayerIndex];
+  }
+
+  function getBoardSize() {
+    return _boardSize;
   }
 
   function _initModeStart() {
@@ -121,7 +125,7 @@ const GameFlow = (function ModelGameFlow() {
     StartView.init();
   }
 
-  function _initModeGame() {
+  function _initModeGame(mode) {
     StartView.clearView();
     Events.publish('movePlayed');   //args: an XY object
     Events.publish('boardUpdated'); //args: bool if game over
@@ -130,7 +134,7 @@ const GameFlow = (function ModelGameFlow() {
     Events.subscribe('gameOver', _initModeEnd);
     GameBoard.init(_boardSize);
     BoardView.init(_boardSize);
-    _initializePlayers();
+    _initializePlayers(mode);
   }
 
   function _initModeEnd(winningPlayer) {
@@ -147,25 +151,33 @@ const GameFlow = (function ModelGameFlow() {
     init();
   }
 
-  function _initializePlayers() {
+  function _initializePlayers(mode) {
     _players = [];
-    _players.push(CreatePlayer('X'));
-    _players.push(CreatePlayer('O'));
-    _currentPlayer = 0;
+    _players.push(CreatePlayer('X', 'human'));
+    if (mode === 'pve') {
+      _players.push(CreatePlayer('O', 'ai'));
+    } else {
+      _players.push(CreatePlayer('O', 'human'));
+    }
+    _currentPlayerIndex = 0;
     _turnCounter = 0;
   }
 
   function _incrementTurn(isGameOver) {
-    _currentPlayer = (_currentPlayer + 1) % _players.length;
+    _currentPlayerIndex = (_currentPlayerIndex + 1) % _players.length;
     _turnCounter++;
     
     if (!isGameOver && _turnCounter >= (_boardSize * _boardSize)) {
       Events.invoke('gameOver', null);
       console.log('IT\'s A TIE!!!');
     }
+
+    if (_players[_currentPlayerIndex].type === 'ai') {
+      _players[_currentPlayerIndex].takeTurn();
+    }
   }
 
-  return { init, getCurrentPlayer };
+  return { init, getCurrentPlayer, getBoardSize };
 })();
 
 
@@ -198,6 +210,9 @@ const GameBoard = (function ModelGameBoard() {
     let isGameOver = false;
 
     if (!_trySet(xy, player)) {
+      if (player.type === 'ai') {
+        console.warn(`ai tried to make an illegal move (${xy.x},${xy.y})`);
+      }
       return;
     }
 
@@ -335,7 +350,7 @@ const BoardView = (function ViewBoard() {
   function init(boardSize) {
     _generateBoard(boardSize);
     Events.subscribe('boardUpdated', _updateBoard);
-    Events.subscribe('gameOver', _displayGameOverScreen);
+    Events.subscribe('gameOver', _handleGameOver);
   }
 
   function clearView() {
@@ -392,7 +407,7 @@ const BoardView = (function ViewBoard() {
     });
   }
 
-  function _displayGameOverScreen(winningPlayer) {
+  function _handleGameOver(winningPlayer) {
     if (winningPlayer) {
       _boardTiles.forEach(tile => {
         tile.clearEventListener();
@@ -411,9 +426,14 @@ const StartView = (function ViewStart() {
   function init() {
     viewContainer = View.createFromTemplate('#start-tmpl', '#start-menu');
     View.assignButton(viewContainer, '#btn-start-pvp', invokeStartPvP);
+    View.assignButton(viewContainer, '#btn-start-pve', invokeStartPvE);
     
     function invokeStartPvP() {
-      Events.invoke('startButtonPressed');
+      Events.invoke('startButtonPressed', 'pvp');
+    }
+
+    function invokeStartPvE() {
+      Events.invoke('startButtonPressed', 'pve');
     }
 
     document.querySelector('main').appendChild(viewContainer);
@@ -443,6 +463,7 @@ const EndView = (function ViewEnd() {
   return {init, clearView};
 })();
 
+
 //* FACTORIES NOT CONTAINED WITHIN A SPECIFIC MODULE
 const CreateXY = (function XY(x, y) {
   const xy = { x, y };
@@ -450,9 +471,37 @@ const CreateXY = (function XY(x, y) {
   return xy;
 });
 
-//! STUB?
-const CreatePlayer = (function Player(mark) {
-  return { mark };
+const CreatePlayer = (function Player(mark, type) {
+  function takeTurn() {
+    if (type !== 'ai') {
+      return false;
+    }
+    const xy = AI.getPosition(mark);
+    Events.invoke('movePlayed', xy);
+  }
+
+  return { mark, type, takeTurn };
 });
+
+const AI = (function AI(difficulty) {
+  const getPosition = getRandomPosition;
+
+  function getRandomPosition() {
+    const gameBoard = GameBoard.getBoard();
+    const boardSize = GameFlow.getBoardSize();
+
+    let pos;
+    do {
+      const x = Math.floor(Math.random() * boardSize);
+      const y = Math.floor(Math.random() * boardSize);
+      pos = CreateXY(x, y);
+    } while (gameBoard[pos.x][pos.y]);
+
+    return pos;
+  }
+
+  return { getPosition };
+})();
+
 
 GameFlow.init();
