@@ -182,49 +182,34 @@ const GameFlow = (function ModelGameFlow() {
 })();
 
 
-const GameBoard = (function ModelGameBoard(_board = []) {
-  
+// (Because of Minimax, I'm making a trillion copies of this
+// ... but the *statefulness* is passed in as a primitive object...
+// ... So, this would probably be a great chance to use PROTOTYPES)
+const GameBoard = (function(_board = { arr: [], count: 0 }) {
+
   function init() {
-    _board = [];
+    _board = { arr: [], count: 0 };
     //TODO: How to properly initialize a 2D array?
     for(let i = 0; i < BOARD_SIZE; i++) {
-      _board.push([]);
+      _board.arr.push([]);
     }
 
     Events.subscribe('movePlayed', _movePlayed);
   }
 
   function trySet(xy, player) {
-    if (_board[xy.x][xy.y]) {
+    if (_board.arr[xy.x][xy.y]) {
       return false;
     }
 
-    _board[xy.x][xy.y] = player;
+    _board.arr[xy.x][xy.y] = player;
+    _board.count++;
     return true;
   }
 
   const getBoard = () => _board;
 
-  function _movePlayed(xy) {
-    const player = GameFlow.getCurrentPlayer()
-    let isGameOver = false;
-
-    if (!trySet(xy, player)) {
-      if (player.type === 'ai') {
-        console.warn(`ai tried to make an illegal move (${xy.x},${xy.y})`);
-      }
-      return;
-    }
-
-    if (checkGameOver(player)) {
-      Events.invoke('gameOver', player);
-      isGameOver = true;
-    }
-
-    Events.invoke('boardUpdated', isGameOver);
-  }
-
-  function checkGameOver(player) {
+  function checkWinner(player) {
     const winPatterns = [
       // Rows
       [ [0,0],[1,0],[2,0] ],
@@ -250,24 +235,42 @@ const GameBoard = (function ModelGameBoard(_board = []) {
 
   function _isWinPattern(winPattern, player) { 
     for (const xy of winPattern) {
-      if (_board[xy[0]][xy[1]] !== player) {
+      if (_board.arr[xy[0]][xy[1]] !== player) {
         return false;
       }
     }
     return true;
   }
 
-  return { init, getBoard, trySet, checkGameOver };
+  function _movePlayed(xy) {
+    const player = GameFlow.getCurrentPlayer()
+    let isGameOver = false;
+
+    if (!trySet(xy, player)) {
+      if (player.type === 'ai') {
+        console.warn(`ai tried to make an illegal move (${xy.x},${xy.y})`);
+      }
+      return;
+    }
+
+    if (checkWinner(player)) {
+      Events.invoke('gameOver', player);
+      isGameOver = true;
+    }
+
+    Events.invoke('boardUpdated', isGameOver);
+  }
+
+  return { init, trySet, getBoard, checkWinner };
 });
 const MainGameBoard = GameBoard();
 
 
 const AI = (function AI() {
-  
   function getPosition() {
     return _getPositionAlgo();
   }
-  
+
   function setAI(difficulty) {
     _getPositionAlgo = difficulty === 'hard' ? _getMinimaxPos : _getRandomPos;
   }
@@ -275,7 +278,7 @@ const AI = (function AI() {
   let _getPositionAlgo = _getRandomPos;
 
   function _getRandomPos() {
-    const gameBoard = MainGameBoard.getBoard();
+    const gameBoard = MainGameBoard.getBoard().arr;
 
     let pos;
     do {
@@ -288,17 +291,19 @@ const AI = (function AI() {
   }
 
   function _getMinimaxPos() {
-    const gameBoardCopy = GameBoard(MainGameBoard.getBoard());
+    const board = MainGameBoard.getBoard();
+    const gameBoardCopy = GameBoard({arr: board.arr, count: board.count});
     const curPlayer = GameFlow.getCurrentPlayer();
-    const somereturnval = _minimax(
+    return _minimax(
       gameBoardCopy, 
       GameFlow.getPlayers().indexOf(curPlayer)
-    );
+    ).xy;
   }
 
   // A recursive function
   // player = player whose turn it is on this iteration
   // rootPlayer = the AI who's running the minimax
+  // : { xy:XY, val:number }
   function _minimax(gameBoard, turn, depth = 1) {
     const moves = [];
     const maxing = GameFlow.getPlayers()[turn] === GameFlow.getCurrentPlayer();
@@ -306,31 +311,44 @@ const AI = (function AI() {
     // Get a list of valid moves based on this board
     for (let y = 0; y < BOARD_SIZE; y++) {
       for (let x = 0; x < BOARD_SIZE; x++) {
-        if (!gameBoard.getBoard()[x] || !gameBoard.getBoard()[x][y]) {
+        if (!gameBoard.getBoard().arr[x] || !gameBoard.getBoard().arr[x][y]) {
           moves.push({ xy: CreateXY(x, y) });
         }
       }
     }
 
-    // Populate scores list
-    moves.forEach(move => {
-      const newGameBoard = GameBoard(gameBoard.getBoard());
+    // Populate scores list, recursing minimax if game isn't over
+    // (some instead of forEach so I can short-circuit on a win,
+    //  since I'm only evaluating win/lose/tie, not anything like 'fewer moves to win')
+    moves.some(move => {
+      const board = gameBoard.getBoard();
+      const newGameBoard = GameBoard({arr: board.arr, count: board.count});
       newGameBoard.trySet(move.xy, GameFlow.getPlayers()[turn]);
 
-      if (newGameBoard.checkGameOver(GameFlow.getPlayers()[turn])) {
-        move.val = maxing ? 10 : -10;
+      if (newGameBoard.checkWinner(GameFlow.getPlayers()[turn])) {
+        if (maxing) {
+          move.val = 10;
+          console.log(`Minimax val @ pos [${move.xy.x}, ${move.xy.y}]:
+              (depth ${depth}): ${move.val} (turn count: ${newGameBoard.getBoard().count})`);
+          return true;
+        } else {
+          move.val = -10;
+        }
+      } else if (newGameBoard.getBoard().count >= 9) {
+        move.val = 0;
       } else {
         const nextTurn = (turn + 1) % GameFlow.getPlayers().length;
         move.val = _minimax(newGameBoard, nextTurn, depth + 1).val;
       }
-      console.log(`Minimax val @ pos [${move.xy.x}, ${move.xy.y}](depth ${depth}): ${move.val}`);
+      
     });
 
+    // Return the greatest move if maxing, or least if not
     moves.sort((a, b) => maxing ? b.val - a.val : a.val - b.val);
     return moves[0];
   }
 
-  return { setAI, getPosition, _getPositionAlgo };
+  return { setAI, getPosition };
 })();
 
 
@@ -414,7 +432,7 @@ const BoardView = (function ViewBoard() {
   function _updateBoard() {
     //? Could maybe use Dependency Injection thru event, 
     //? instead of directly interfacing w GameBoard module?
-    const newBoardState = MainGameBoard.getBoard();
+    const newBoardState = MainGameBoard.getBoard().arr;
 
     _boardTiles.forEach(tile => {
       const newTileState = newBoardState[tile.xy.x][tile.xy.y];
