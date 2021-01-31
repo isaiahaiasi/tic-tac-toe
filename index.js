@@ -1,3 +1,6 @@
+const BOARD_SIZE = 3;
+
+
 //* CUSTOM EVENT HANDLER
 const Events = (function EventHandler() {
   // create a new event, if one with that name doesn't already exist
@@ -100,9 +103,9 @@ const Events = (function EventHandler() {
   return { publish, invoke, subscribe, unsubscribe, destroyEvent, resetEvents };
 })();
 
+
 //* GAME MODEL / LOGIC
 const GameFlow = (function ModelGameFlow() {
-  const _boardSize = 3;
   let _players = [];
   let _currentPlayerIndex;
   let _turnCounter;
@@ -113,10 +116,6 @@ const GameFlow = (function ModelGameFlow() {
 
   function getCurrentPlayer() {
     return _players[_currentPlayerIndex];
-  }
-
-  function getBoardSize() {
-    return _boardSize;
   }
 
   function _initModeStart() {
@@ -132,8 +131,8 @@ const GameFlow = (function ModelGameFlow() {
     Events.publish('gameOver');     //args: the winning player
     Events.subscribe('boardUpdated', _incrementTurn);
     Events.subscribe('gameOver', _initModeEnd);
-    GameBoard.init(_boardSize);
-    BoardView.init(_boardSize);
+    GameBoard.init(BOARD_SIZE);
+    BoardView.init(BOARD_SIZE);
     _initializePlayers(mode);
   }
 
@@ -167,7 +166,7 @@ const GameFlow = (function ModelGameFlow() {
     _turnCounter++;
     
     if (!isGameOver) {
-      if (_turnCounter >= (_boardSize * _boardSize)) {
+      if (_turnCounter >= (BOARD_SIZE * BOARD_SIZE)) {
         Events.invoke('gameOver', null);
       } else if (_players[_currentPlayerIndex].type === 'ai') {
         _players[_currentPlayerIndex].takeTurn();
@@ -175,32 +174,29 @@ const GameFlow = (function ModelGameFlow() {
     }
   }
 
-  return { init, getCurrentPlayer, getBoardSize };
+  return { init, getCurrentPlayer };
 })();
 
 
 const GameBoard = (function ModelGameBoard() {
-  let _boardSize;
   let _board;
   
-  function init(boardSize) {
+  function init() {
     _board = [];
-    _boardSize = boardSize;
 
     //TODO: How to properly initialize a 2D array?
-    for(let i = 0; i < _boardSize; i++) {
+    for(let i = 0; i < BOARD_SIZE; i++) {
       _board.push([]);
     }
 
     Events.subscribe('movePlayed', _movePlayed);
-    GameOverChecker.init();
   }
 
   //TODO: research proper getters--I don't want to allow _board to be mutated
   const getBoard = () => _board;
 
   function getXYFromIndex(i) {
-    return CreateXY(Math.floor(i / _boardSize), i % _boardSize);
+    return CreateXY(Math.floor(i / BOARD_SIZE), i % BOARD_SIZE);
   }
 
   function _movePlayed(xy) {
@@ -214,7 +210,7 @@ const GameBoard = (function ModelGameBoard() {
       return;
     }
 
-    if (GameOverChecker.isGameOver(xy, player)) {
+    if (_checkGameOver(player)) {
       console.log('winner winner chicken dinner!');
       Events.invoke('gameOver', player);
       isGameOver = true;
@@ -232,86 +228,38 @@ const GameBoard = (function ModelGameBoard() {
     return true;
   }
 
-  const GameOverChecker = (function GameBoardCheckGameOver() {
-    let _diagonalFallingPositions = [];
-    let _diagonalRisingPositions = [];
-
-    function init() {
-      _diagonalFallingPositions = _getDiagonalFallingPositions();
-      _diagonalRisingPositions = _getDiagonalRisingPositions();
-    }
-
-    function isGameOver(xy, player) {
-      return (
-        _getColumnWinner(xy, player) ||
-        _getRowWinner(xy, player) ||
-        _getDiagonalWinner(player)
-      );
-    }
-
-    function _getColumnWinner(xy, player) {
-      for (let i = 0; i < _boardSize; i++) {
-        if (!_board[xy.x] || !_board[xy.x][i] || _board[xy.x][i] !== player) {
-          return false;
-        }
+  function _checkGameOver(player) {
+    const winPatterns = [
+      // Rows
+      [ [0,0],[1,0],[2,0] ],
+      [ [0,1],[1,1],[2,1] ],
+      [ [0,2],[1,2],[2,2] ],
+      // Columns
+      [ [0,0],[0,1],[0,2] ],
+      [ [1,0],[1,1],[1,2] ],
+      [ [2,0],[2,1],[2,2] ],
+      // Diagonals
+      [ [0,0],[1,1],[2,2] ],
+      [ [0,2],[1,1],[2,0] ],
+    ];
+    for (const winPattern of winPatterns) {
+      if (!_isWinPattern(winPattern, player)) {
+        continue;
+      } else {
+        return true;
       }
-      return true;
     }
+    return false;
+  }
 
-    function _getRowWinner(xy, player) {
-      for (let i =0; i < _boardSize; i++) {
-        if (!_board[i] || !_board[i][xy.y] || _board[i][xy.y] !== player) {
-          return false;
-        }
+  function _isWinPattern(winPattern, player) { 
+    for (const xy of winPattern) {
+      if (_board[xy[0]][xy[1]] !== player) {
+        return false;
       }
-      return true;
     }
-
-    function _getDiagonalWinner(player) {
-      return (
-        _checkWinnerInXYSet(_diagonalFallingPositions, player) ||
-        _checkWinnerInXYSet(_diagonalRisingPositions, player)
-      );
-    }
-
-    function _checkWinnerInXYSet(positions, player) {
-      for(let i = 0; i < positions.length; i++) {
-        const pos = positions[i];
-        if (_board[pos.x][pos.y] !== player) {
-          return false;
-        }
-      }
-      return true;
-    }
-
-    // Falling diagonal = "\" ([0,0], [1,1], etc)
-    function _getDiagonalFallingPositions() {
-      const diagonalPositions = [];
-      for (let y = 0; y < _boardSize; y++) {
-        for (let x = 0; x < _boardSize; x++){
-          if (x === y) {
-            diagonalPositions.push(CreateXY(x,y));
-          }
-        }
-      }
-      return diagonalPositions;
-    }
-
-    // Rising diagonal = "/" ([0, _boardSize - 1], [1, _boardSize - 2], etc)
-    function _getDiagonalRisingPositions() {
-      const diagonalPositions = [];
-      for (let y = 0; y < _boardSize; y++) {
-        for (let x = 0; x < _boardSize; x++){
-          if ((x + y + 1) === _boardSize) {
-            diagonalPositions.push(CreateXY(x,y));
-          }
-        }
-      }
-      return diagonalPositions;
-    }
-    
-    return { init, isGameOver };
-  })();
+    return true;
+  }
 
   return { init, getBoard, getXYFromIndex };
 })();
@@ -345,8 +293,8 @@ const BoardView = (function ViewBoard() {
   let _boardTiles = [];
   let _boardContainer;
 
-  function init(boardSize) {
-    _generateBoard(boardSize);
+  function init() {
+    _generateBoard();
     Events.subscribe('boardUpdated', _updateBoard);
     Events.subscribe('gameOver', _handleGameOver);
   }
@@ -356,12 +304,12 @@ const BoardView = (function ViewBoard() {
     _boardTiles = [];
   }
 
-  function _generateBoard(boardSize) {
+  function _generateBoard() {
     _boardContainer = document.createElement('div');
     _boardContainer.classList.add('game-board');
 
-    for (let y = 0; y < boardSize; y++) {
-      for (let x = 0; x < boardSize; x++) {
+    for (let y = 0; y < BOARD_SIZE; y++) {
+      for (let x = 0; x < BOARD_SIZE; x++) {
         _boardTiles.push(_createBoardTile(x, y));
       }
     }
@@ -487,12 +435,11 @@ const AI = (function AI(difficulty) {
 
   function getRandomPosition() {
     const gameBoard = GameBoard.getBoard();
-    const boardSize = GameFlow.getBoardSize();
 
     let pos;
     do {
-      const x = Math.floor(Math.random() * boardSize);
-      const y = Math.floor(Math.random() * boardSize);
+      const x = Math.floor(Math.random() * BOARD_SIZE);
+      const y = Math.floor(Math.random() * BOARD_SIZE);
       pos = CreateXY(x, y);
     } while (gameBoard[pos.x][pos.y]);
 

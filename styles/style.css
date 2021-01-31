@@ -1,4 +1,5 @@
 :root {
+  --board-size: 3;
   --col-base-0:#1a1a2e;
   --col-base-1:#16213e;
   --col-base-2:#0f3460;
@@ -65,9 +66,9 @@ button {
   box-sizing:border-box;
   display: grid;
   position: relative;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(var(--board-size), 1fr);
   margin:auto;
-  width: calc(3*var(--card-height));
+  width: calc((var(--board-size))*var(--card-height));
   max-width: 75vw;
   padding:var(--card-spacing);
   border-radius:var(--border-radius);
