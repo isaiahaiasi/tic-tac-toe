@@ -118,6 +118,10 @@ const GameFlow = (function ModelGameFlow() {
     return _players[_currentPlayerIndex];
   }
 
+  function getPlayers() {
+    return _players;
+  }
+
   function _initModeStart() {
     Events.publish('startButtonPressed'); //args: string 'pvp' or 'pve'
     Events.subscribe('startButtonPressed', _initModeGame);
@@ -131,8 +135,8 @@ const GameFlow = (function ModelGameFlow() {
     Events.publish('gameOver');     //args: the winning player
     Events.subscribe('boardUpdated', _incrementTurn);
     Events.subscribe('gameOver', _initModeEnd);
-    GameBoard.init(BOARD_SIZE);
-    BoardView.init(BOARD_SIZE);
+    MainGameBoard.init();
+    BoardView.init();
     _initializePlayers(mode);
   }
 
@@ -174,16 +178,14 @@ const GameFlow = (function ModelGameFlow() {
     }
   }
 
-  return { init, getCurrentPlayer };
+  return { init, getCurrentPlayer, getPlayers };
 })();
 
 
-const GameBoard = (function ModelGameBoard() {
-  let _board;
+const GameBoard = (function ModelGameBoard(_board = []) {
   
   function init() {
     _board = [];
-
     //TODO: How to properly initialize a 2D array?
     for(let i = 0; i < BOARD_SIZE; i++) {
       _board.push([]);
@@ -192,34 +194,7 @@ const GameBoard = (function ModelGameBoard() {
     Events.subscribe('movePlayed', _movePlayed);
   }
 
-  //TODO: research proper getters--I don't want to allow _board to be mutated
-  const getBoard = () => _board;
-
-  function getXYFromIndex(i) {
-    return CreateXY(Math.floor(i / BOARD_SIZE), i % BOARD_SIZE);
-  }
-
-  function _movePlayed(xy) {
-    const player = GameFlow.getCurrentPlayer()
-    let isGameOver = false;
-
-    if (!_trySet(xy, player)) {
-      if (player.type === 'ai') {
-        console.warn(`ai tried to make an illegal move (${xy.x},${xy.y})`);
-      }
-      return;
-    }
-
-    if (_checkGameOver(player)) {
-      console.log('winner winner chicken dinner!');
-      Events.invoke('gameOver', player);
-      isGameOver = true;
-    }
-
-    Events.invoke('boardUpdated', isGameOver);
-  }
-
-  function _trySet(xy, player) {
+  function trySet(xy, player) {
     if (_board[xy.x][xy.y]) {
       return false;
     }
@@ -228,7 +203,28 @@ const GameBoard = (function ModelGameBoard() {
     return true;
   }
 
-  function _checkGameOver(player) {
+  const getBoard = () => _board;
+
+  function _movePlayed(xy) {
+    const player = GameFlow.getCurrentPlayer()
+    let isGameOver = false;
+
+    if (!trySet(xy, player)) {
+      if (player.type === 'ai') {
+        console.warn(`ai tried to make an illegal move (${xy.x},${xy.y})`);
+      }
+      return;
+    }
+
+    if (checkGameOver(player)) {
+      Events.invoke('gameOver', player);
+      isGameOver = true;
+    }
+
+    Events.invoke('boardUpdated', isGameOver);
+  }
+
+  function checkGameOver(player) {
     const winPatterns = [
       // Rows
       [ [0,0],[1,0],[2,0] ],
@@ -261,7 +257,80 @@ const GameBoard = (function ModelGameBoard() {
     return true;
   }
 
-  return { init, getBoard, getXYFromIndex };
+  return { init, getBoard, trySet, checkGameOver };
+});
+const MainGameBoard = GameBoard();
+
+
+const AI = (function AI() {
+  
+  function getPosition() {
+    return _getPositionAlgo();
+  }
+  
+  function setAI(difficulty) {
+    _getPositionAlgo = difficulty === 'hard' ? _getMinimaxPos : _getRandomPos;
+  }
+
+  let _getPositionAlgo = _getRandomPos;
+
+  function _getRandomPos() {
+    const gameBoard = MainGameBoard.getBoard();
+
+    let pos;
+    do {
+      const x = Math.floor(Math.random() * BOARD_SIZE);
+      const y = Math.floor(Math.random() * BOARD_SIZE);
+      pos = CreateXY(x, y);
+    } while (gameBoard[pos.x][pos.y]);
+
+    return pos;
+  }
+
+  function _getMinimaxPos() {
+    const gameBoardCopy = GameBoard(MainGameBoard.getBoard());
+    const curPlayer = GameFlow.getCurrentPlayer();
+    const somereturnval = _minimax(
+      gameBoardCopy, 
+      GameFlow.getPlayers().indexOf(curPlayer)
+    );
+  }
+
+  // A recursive function
+  // player = player whose turn it is on this iteration
+  // rootPlayer = the AI who's running the minimax
+  function _minimax(gameBoard, turn, depth = 1) {
+    const moves = [];
+    const maxing = GameFlow.getPlayers()[turn] === GameFlow.getCurrentPlayer();
+
+    // Get a list of valid moves based on this board
+    for (let y = 0; y < BOARD_SIZE; y++) {
+      for (let x = 0; x < BOARD_SIZE; x++) {
+        if (!gameBoard.getBoard()[x] || !gameBoard.getBoard()[x][y]) {
+          moves.push({ xy: CreateXY(x, y) });
+        }
+      }
+    }
+
+    // Populate scores list
+    moves.forEach(move => {
+      const newGameBoard = GameBoard(gameBoard.getBoard());
+      newGameBoard.trySet(move.xy, GameFlow.getPlayers()[turn]);
+
+      if (newGameBoard.checkGameOver(GameFlow.getPlayers()[turn])) {
+        move.val = maxing ? 10 : -10;
+      } else {
+        const nextTurn = (turn + 1) % GameFlow.getPlayers().length;
+        move.val = _minimax(newGameBoard, nextTurn, depth + 1).val;
+      }
+      console.log(`Minimax val @ pos [${move.xy.x}, ${move.xy.y}](depth ${depth}): ${move.val}`);
+    });
+
+    moves.sort((a, b) => maxing ? b.val - a.val : a.val - b.val);
+    return moves[0];
+  }
+
+  return { setAI, getPosition, _getPositionAlgo };
 })();
 
 
@@ -345,7 +414,7 @@ const BoardView = (function ViewBoard() {
   function _updateBoard() {
     //? Could maybe use Dependency Injection thru event, 
     //? instead of directly interfacing w GameBoard module?
-    const newBoardState = GameBoard.getBoard();
+    const newBoardState = MainGameBoard.getBoard();
 
     _boardTiles.forEach(tile => {
       const newTileState = newBoardState[tile.xy.x][tile.xy.y];
@@ -429,25 +498,6 @@ const CreatePlayer = (function Player(mark, type) {
 
   return { mark, type, takeTurn };
 });
-
-const AI = (function AI(difficulty) {
-  const getPosition = getRandomPosition;
-
-  function getRandomPosition() {
-    const gameBoard = GameBoard.getBoard();
-
-    let pos;
-    do {
-      const x = Math.floor(Math.random() * BOARD_SIZE);
-      const y = Math.floor(Math.random() * BOARD_SIZE);
-      pos = CreateXY(x, y);
-    } while (gameBoard[pos.x][pos.y]);
-
-    return pos;
-  }
-
-  return { getPosition };
-})();
 
 
 GameFlow.init();
