@@ -141,7 +141,6 @@ const GameFlow = (function ModelGameFlow() {
     Events.publish('restart');
     Events.subscribe('restart', _restart);
     EndView.init(winningPlayer);
-    console.log(`winning player: ${winningPlayer.mark}`);
   }
 
   function _restart() {
@@ -167,13 +166,12 @@ const GameFlow = (function ModelGameFlow() {
     _currentPlayerIndex = (_currentPlayerIndex + 1) % _players.length;
     _turnCounter++;
     
-    if (!isGameOver && _turnCounter >= (_boardSize * _boardSize)) {
-      Events.invoke('gameOver', null);
-      console.log('IT\'s A TIE!!!');
-    }
-
-    if (_players[_currentPlayerIndex].type === 'ai') {
-      _players[_currentPlayerIndex].takeTurn();
+    if (!isGameOver) {
+      if (_turnCounter >= (_boardSize * _boardSize)) {
+        Events.invoke('gameOver', null);
+      } else if (_players[_currentPlayerIndex].type === 'ai') {
+        _players[_currentPlayerIndex].takeTurn();
+      }
     }
   }
 
@@ -407,14 +405,10 @@ const BoardView = (function ViewBoard() {
     });
   }
 
-  function _handleGameOver(winningPlayer) {
-    if (winningPlayer) {
-      _boardTiles.forEach(tile => {
-        tile.clearEventListener();
-      });
-    } else {
-      console.log('dom says... it\'s a tie????');
-    }
+  function _handleGameOver() {
+    _boardTiles.forEach(tile => {
+      tile.clearEventListener();
+    });
   }
 
   return { init, clearView };
@@ -448,7 +442,12 @@ const EndView = (function ViewEnd() {
   let viewContainer;
   function init(winningPlayer) {
     viewContainer = View.createFromTemplate('#end-tmpl', '#end-menu');
-    viewContainer.querySelector('a').textContent = winningPlayer.mark;
+
+    if(winningPlayer) {
+      viewContainer.querySelector('a').textContent = winningPlayer.mark;
+    } else {
+      viewContainer.querySelector('p').textContent = 'It\'s a tie!';
+    }
     View.assignButton(viewContainer, 'button', invokeRestart)
 
     document.querySelector('main').appendChild(viewContainer);
