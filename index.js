@@ -324,40 +324,53 @@ const AI = (function AI() {
   function _minimax(gameBoard, turn, depth = 1) {
     const moves = [];
     const maxing = GameFlow.getPlayers()[turn] === GameFlow.getCurrentPlayer();
-
+    
+    let movesRemaining = 0;
     // Get a list of valid moves based on this board
     for (let y = 0; y < BOARD_SIZE; y++) {
       for (let x = 0; x < BOARD_SIZE; x++) {
         if (!gameBoard.getBoard()[x] || !gameBoard.getBoard()[x][y]) {
           moves.push({ xy: CreateXY(x, y) });
+          movesRemaining++;
         }
       }
+    }
+    const turnCount = 9 - movesRemaining;
+
+    if (moves.length === 0) {
+      console.error('minimax couldn\'t find any valid moves!')
+      console.log(`current turn in simulation: ${gameBoard.getTurnCount()}, depth: ${depth}`);
     }
 
     // Populate scores list, recursing minimax if game isn't over
     // (some instead of forEach so I can short-circuit on a win,
     //  since I'm only evaluating win/lose/tie, not anything like 'fewer moves to win')
+    // console.table(turnCount, depth, turn, GameFlow.getPlayers()[turn], maxing);
     moves.forEach(move => {
       const board = gameBoard.getBoardCopy();
       const newGameBoard = GameBoard(board);
       newGameBoard.trySet(move.xy, GameFlow.getPlayers()[turn]);
+      console.table();
 
       if (newGameBoard.checkWinner(GameFlow.getPlayers()[turn])) {
         if (maxing) {
           move.val = 10;
-          console.log(`Minimax val @ pos [${move.xy.x}, ${move.xy.y}]:
-              (depth ${depth}): ${move.val} (turn count: ${newGameBoard.getTurnCount()})`);
+          // console.log(`Minimax val @ pos [${move.xy.x}, ${move.xy.y}]:
+          //     (depth ${depth}): ${move.val} (turn count: ${turnCount})`);
           return true;
         } else {
           move.val = -10;
+          // console.log(`Minimax val @ pos [${move.xy.x}, ${move.xy.y}]:
+          //     (depth ${depth}): ${move.val} (turn count: ${turnCount})
+          //     board:`);
+          // console.log(newGameBoard.getBoard());
         }
-      } else if (newGameBoard.getTurnCount() >= 9) {
+      } else if (turnCount >= 8) {
         move.val = 0;
       } else {
         const nextTurn = (turn + 1) % GameFlow.getPlayers().length;
         move.val = _minimax(newGameBoard, nextTurn, depth + 1).val;
       }
-      
     });
 
     // Return the greatest move if maxing, or least if not
