@@ -292,7 +292,7 @@ const AI = (function AI() {
     _getPositionAlgo = difficulty === 'hard' ? _getMinimaxPos : _getRandomPos;
   }
 
-  let _getPositionAlgo = _getRandomPos;
+  let _getPositionAlgo = _getMinimaxPos;
 
   function _getRandomPos() {
     const gameBoard = MainGameBoard.getBoard();
@@ -311,6 +311,7 @@ const AI = (function AI() {
     const board = MainGameBoard.getBoardCopy();
     const gameBoardCopy = GameBoard(board);
     const curPlayer = GameFlow.getCurrentPlayer();
+    
     return _minimax(
       gameBoardCopy, 
       GameFlow.getPlayers().indexOf(curPlayer)
@@ -343,27 +344,20 @@ const AI = (function AI() {
     }
 
     // Populate scores list, recursing minimax if game isn't over
-    // (some instead of forEach so I can short-circuit on a win,
-    //  since I'm only evaluating win/lose/tie, not anything like 'fewer moves to win')
-    // console.table(turnCount, depth, turn, GameFlow.getPlayers()[turn], maxing);
-    moves.forEach(move => {
+    // (some instead of forEach so I can short-circuit on a win)
+    //TODO: OPTIMIZE...
+    moves.some(move => {
       const board = gameBoard.getBoardCopy();
       const newGameBoard = GameBoard(board);
+
       newGameBoard.trySet(move.xy, GameFlow.getPlayers()[turn]);
-      console.table();
 
       if (newGameBoard.checkWinner(GameFlow.getPlayers()[turn])) {
         if (maxing) {
           move.val = 10;
-          // console.log(`Minimax val @ pos [${move.xy.x}, ${move.xy.y}]:
-          //     (depth ${depth}): ${move.val} (turn count: ${turnCount})`);
           return true;
         } else {
           move.val = -10;
-          // console.log(`Minimax val @ pos [${move.xy.x}, ${move.xy.y}]:
-          //     (depth ${depth}): ${move.val} (turn count: ${turnCount})
-          //     board:`);
-          // console.log(newGameBoard.getBoard());
         }
       } else if (turnCount >= 8) {
         move.val = 0;
@@ -371,6 +365,7 @@ const AI = (function AI() {
         const nextTurn = (turn + 1) % GameFlow.getPlayers().length;
         move.val = _minimax(newGameBoard, nextTurn, depth + 1).val;
       }
+      return false;
     });
 
     // Return the greatest move if maxing, or least if not
