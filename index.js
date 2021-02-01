@@ -185,32 +185,41 @@ const GameFlow = (function ModelGameFlow() {
 // (Because of Minimax, I'm making a trillion copies of this
 // ... but the *statefulness* is passed in as a primitive object...
 // ... So, this would probably be a great chance to use PROTOTYPES)
-const GameBoard = (function(newBoard = []) {
-  let _board = newBoard;
+const GameBoard = (function(board = []) {
   let _count = 0;
 
   function init() {
-    _board = [];
+    board = [];
     //TODO: How to properly initialize a 2D array?
     for(let i = 0; i < BOARD_SIZE; i++) {
-      _board.push([]);
+      board.push([]);
     }
 
     Events.subscribe('movePlayed', _movePlayed);
   }
 
   function trySet(xy, player) {
-    if (_board[xy.x][xy.y]) {
+    if (!board[xy.x]) {
+      board[xy.x] = [];
+    }
+
+    if (board[xy.x][xy.y]) {
       return false;
     }
 
-    _board[xy.x][xy.y] = player;
+    board[xy.x][xy.y] = player;
     _count++;
     return true;
   }
 
   function getBoard() {
-    return _board;
+    return board;
+  }
+
+  function getBoardCopy() {
+    const copy = [];
+    board.forEach(column => copy.push([...column]));
+    return copy;
   }
 
   function getTurnCount() {
@@ -243,7 +252,7 @@ const GameBoard = (function(newBoard = []) {
 
   function _isWinPattern(winPattern, player) { 
     for (const xy of winPattern) {
-      if (_board[xy[0]][xy[1]] !== player) {
+      if (board[xy[0]][xy[1]] !== player) {
         return false;
       }
     }
@@ -269,7 +278,7 @@ const GameBoard = (function(newBoard = []) {
     Events.invoke('boardUpdated', isGameOver);
   }
 
-  return { init, trySet, getBoard, getTurnCount, checkWinner };
+  return { init, trySet, getBoard, getTurnCount, checkWinner, getBoardCopy };
 });
 const MainGameBoard = GameBoard();
 
@@ -299,7 +308,7 @@ const AI = (function AI() {
   }
 
   function _getMinimaxPos() {
-    const board = [...MainGameBoard.getBoard()];
+    const board = MainGameBoard.getBoardCopy();
     const gameBoardCopy = GameBoard(board);
     const curPlayer = GameFlow.getCurrentPlayer();
     return _minimax(
@@ -329,7 +338,7 @@ const AI = (function AI() {
     // (some instead of forEach so I can short-circuit on a win,
     //  since I'm only evaluating win/lose/tie, not anything like 'fewer moves to win')
     moves.forEach(move => {
-      const board = [...gameBoard.getBoard()];
+      const board = gameBoard.getBoardCopy();
       const newGameBoard = GameBoard(board);
       newGameBoard.trySet(move.xy, GameFlow.getPlayers()[turn]);
 
