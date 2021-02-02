@@ -1,107 +1,8 @@
-const BOARD_SIZE = 3;
+import { Events } from './events';
+import { View, StartView, BoardView, EndView } from './view';
+import { CreateXY } from './xy';
 
-
-//* CUSTOM EVENT HANDLER
-const Events = (function EventHandler() {
-  // create a new event, if one with that name doesn't already exist
-  const publish = function(eventName) {
-    if (_hasEvent(eventName)) {
-      console.warn(`Tried to publish ${eventName} event, but that event already exists!`);
-      return false;
-    }
-    _events.set(eventName, _createEvent(eventName));
-    return true;
-  }
-
-  // call all subscribed functions
-  const invoke = function(eventName, ...args) {
-    if (!_hasEvent(eventName)) {
-      console.warn(`Tried to invoke nonexistent event ${eventName}!`);
-      return false;
-    }
-    _events.get(eventName).callListeners(...args);
-    return true;
-  };
-
-  //TODO: Use Spread operator to allow multiple functions to be passed as arguments
-  // If the event exists in _events, add this function to its listeners
-  const subscribe = function(eventName, func) {
-    if (!_hasEvent(eventName)) {
-      console.warn(`Tried to subscribe ${func} from nonexistent event ${eventName}!`);
-      return false;
-    }
-    return _events.get(eventName).addListener(func);
-  };
-
-  // Try to remove a listener, if the function exists in the event eventname
-  const unsubscribe = function(eventName, func) {
-    if (!_hasEvent(eventName)) {
-      console.warn(`Tried to unsubscribe ${func} from nonexistent event ${eventName}!`);
-      return false;
-    }
-    return _events.get(eventName).removeListener(func);
-  };
-
-  // Remove event from _events
-  const destroyEvent = function(eventName) {
-    if (!_events.delete(eventName)) {
-      console.warn(`tried to destroy nonexistent event ${eventName}!`);
-      return false;
-    }
-    return true;
-  };
-
-  const resetEvents = () => _events.clear();
-
-  // functions to be called when the event is invoked
-  const _events = new Map();
-  
-  // an event contains a name and a list of listeners
-  const _hasEvent = function(eventName) {
-    return _events.has(eventName);
-  };
-
-  const _createEvent = function(eventName) {
-    const _listeners = [];
-
-    const getName = function() { return eventName };
-
-    const addListener = function(listener) {
-      if (_containsListener(listener)) {
-        console.warn(`tried to add listener ${listener} to ${eventName}, but it was already subscribed!`);
-        return false;
-      }
-      _listeners.push(listener);
-      return true;
-    };
-
-    const removeListener = function(listener) {
-      if (_containsListener(listener)) {
-        console.warn(`tried to unsubscribe ${listener} from ${eventName}, but it isn't subscribed!`);
-        return false;
-      }
-      _listeners.splice(_listeners.indexOf(listener), 1);
-      return true;
-    };
-
-    const callListeners = function(...args) {
-      if (_listeners.length < 1) {
-        console.warn(`Tried to invoke ${eventName}, but it did not have any listeners!`);
-        return false;
-      }
-      _listeners.forEach(listener => args ? listener(...args) : listener());
-      return true;
-    };
-
-    const _containsListener = function(listener) {
-      return _listeners.includes(listener);
-    };
-
-    return { getName, addListener, removeListener, callListeners }
-  };
-
-  return { publish, invoke, subscribe, unsubscribe, destroyEvent, resetEvents };
-})();
+import { BOARD_SIZE } from './globalvars';
 
 
 //* GAME MODEL / LOGIC
@@ -136,7 +37,7 @@ const GameFlow = (function ModelGameFlow() {
     Events.subscribe('boardUpdated', _incrementTurn);
     Events.subscribe('gameOver', _initModeEnd);
     MainGameBoard.init();
-    BoardView.init();
+    BoardView.init(MainGameBoard);
     _initializePlayers(mode);
   }
 
@@ -180,7 +81,6 @@ const GameFlow = (function ModelGameFlow() {
 
   return { init, getCurrentPlayer, getPlayers };
 })();
-
 
 // (Because of Minimax, I'm making a trillion copies of this
 // ... but the *statefulness* is passed in as a primitive object...
@@ -377,158 +277,7 @@ const AI = (function AI() {
 })();
 
 
-//* MODULES FOR MANIPULATING THE DOM
-const View = (function View() {
-  const _main = document.querySelector('main');
-
-  function getMain() {
-    return _main;
-  }
-
-  function createFromTemplate(templateSelector, contentSelector) {
-    const viewTemplate = document.querySelector(templateSelector).content;
-    return viewTemplate.querySelector(contentSelector).cloneNode(true);
-  }
-
-  function assignButton(container, buttonSelector, func) {
-    const btn = container.querySelector(buttonSelector);
-    btn.addEventListener('click', func);
-    return btn;
-  }
-
-  const clearView = (viewContainer) => viewContainer?.remove();
-
-  return { getMain, createFromTemplate, assignButton, clearView };
-})();
-
-const BoardView = (function ViewBoard() {
-  let _boardTiles = [];
-  let _boardContainer;
-
-  function init() {
-    _generateBoard();
-    Events.subscribe('boardUpdated', _updateBoard);
-    Events.subscribe('gameOver', _handleGameOver);
-  }
-
-  function clearView() {
-    View.clearView(_boardContainer);
-    _boardTiles = [];
-  }
-
-  function _generateBoard() {
-    _boardContainer = document.createElement('div');
-    _boardContainer.classList.add('game-board');
-
-    for (let y = 0; y < BOARD_SIZE; y++) {
-      for (let x = 0; x < BOARD_SIZE; x++) {
-        _boardTiles.push(_createBoardTile(x, y));
-      }
-    }
-
-    _boardTiles.forEach(tile => {
-      _boardContainer.appendChild(tile.node);
-    });
-
-    View.getMain().appendChild(_boardContainer);
-  }
-
-  const _createBoardTile = function(x, y) {
-    const xy = CreateXY(x,y);
-    const node = document.createElement('div');
-
-    node.classList.add('tile');
-    node.addEventListener('click', _onClick);
-
-    //? Move UI event triggers to a more appropriate module?
-    function _onClick() {
-      Events.invoke('movePlayed', xy);
-    }
-
-    function clearEventListener() {
-      node.removeEventListener('click', _onClick);
-    }
-
-    return { xy, node, clearEventListener };
-  }
-
-  //TODO: This should only re-render the tiles that have actually changed
-  //TODO: (if I want to render a large number of tiles)
-  function _updateBoard() {
-    //? Could maybe use Dependency Injection thru event, 
-    //? instead of directly interfacing w GameBoard module?
-    const newBoardState = MainGameBoard.getBoard();
-
-    _boardTiles.forEach(tile => {
-      const newTileState = newBoardState[tile.xy.x][tile.xy.y];
-      tile.node.textContent =  newTileState ? newTileState.mark : '';
-    });
-  }
-
-  function _handleGameOver() {
-    _boardTiles.forEach(tile => {
-      tile.clearEventListener();
-    });
-  }
-
-  return { init, clearView };
-})();
-
-const StartView = (function ViewStart() {
-  let viewContainer;
-
-  function init() {
-    viewContainer = View.createFromTemplate('#start-tmpl', '#start-menu');
-    View.assignButton(viewContainer, '#btn-start-pvp', invokeStartPvP);
-    View.assignButton(viewContainer, '#btn-start-pve', invokeStartPvE);
-    
-    function invokeStartPvP() {
-      Events.invoke('startButtonPressed', 'pvp');
-    }
-
-    function invokeStartPvE() {
-      Events.invoke('startButtonPressed', 'pve');
-    }
-
-    document.querySelector('main').appendChild(viewContainer);
-  }
-
-  const clearView = () => View.clearView(viewContainer);
-
-  return { init, clearView };
-})();
-
-const EndView = (function ViewEnd() {
-  let viewContainer;
-  function init(winningPlayer) {
-    viewContainer = View.createFromTemplate('#end-tmpl', '#end-menu');
-
-    if(winningPlayer) {
-      viewContainer.querySelector('a').textContent = winningPlayer.mark;
-    } else {
-      viewContainer.querySelector('p').textContent = 'It\'s a tie!';
-    }
-    View.assignButton(viewContainer, 'button', invokeRestart)
-
-    document.querySelector('main').appendChild(viewContainer);
-  }
-
-  function invokeRestart() {
-    Events.invoke('restart');
-  }
-
-  const clearView = () => View.clearView(viewContainer);
-
-  return {init, clearView};
-})();
-
-
 //* FACTORIES NOT CONTAINED WITHIN A SPECIFIC MODULE
-const CreateXY = (function XY(x, y) {
-  const xy = { x, y };
-  Object.freeze(xy);
-  return xy;
-});
 
 const CreatePlayer = (function Player(mark, type) {
   function takeTurn() {
