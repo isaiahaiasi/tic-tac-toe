@@ -1,5 +1,5 @@
 import { Events } from './events';
-import { View, StartView, BoardView, EndView } from './view';
+import { StartView, BoardView, EndView } from './view';
 import { CreateXY } from './xy';
 
 import { BOARD_SIZE } from './globalvars';

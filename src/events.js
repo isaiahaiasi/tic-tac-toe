@@ -20,7 +20,7 @@ const Events = (function EventHandler() {
     return true;
   };
 
-  //TODO: Use Spread operator to allow multiple functions to be passed as arguments
+  //TODO: Use Spread operator to allow multiple functions to be passed as arguments?
   // If the event exists in _events, add this function to its listeners
   const subscribe = function(eventName, func) {
     if (!_hasEvent(eventName)) {
