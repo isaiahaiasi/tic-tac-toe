@@ -1,0 +1,144 @@
+:root {
+  --board-size: 3;
+  --col-base-0:#1a1a2e;
+  --col-base-1:#16213e;
+  --col-base-2:#0f3460;
+  --col-primary:#e94560;
+  --col-black:#000000;
+  --col-white:#FFFFFF;
+
+  --border-radius:5px;
+
+  --card-height:1.2em;
+  --card-spacing:.07em;
+
+  --z-bg: -100;
+  --z-mg: 0;
+  --z-fg: 100;
+}
+
+body {
+  background:var(--col-base-1);
+  color:var(--col-white);
+  height: 100vh;
+}
+
+header {
+  font-family:'Shrikhand', 'Times New Roman', Times, serif;
+  text-align:center;
+  font-size:3.5em;
+  text-shadow:.05em .05em 0 var(--col-primary);
+  margin-bottom:1em;
+}
+
+main {
+  margin-top: 1em;
+  display:flex;
+  flex-direction: column;
+  align-items:center;
+}
+
+footer {
+  position:absolute;
+  bottom: 1em;
+  left: 1em;
+}
+
+a, a:visited {
+  color:white;
+}
+
+button {
+  font-size:1em;
+  font-weight:bold;
+  margin: 1em;
+  color:var(--col-white);
+  background:var(--col-primary);
+  padding:.7em;
+  box-shadow: .2em .2em 0 var(--col-black);
+  border-radius:5px;
+  border:none;
+  outline:none;
+}
+
+.game-board {
+  font-size:7em;
+  box-sizing:border-box;
+  display: grid;
+  position: relative;
+  grid-template-columns: repeat(var(--board-size), 1fr);
+  margin:auto;
+  width: calc((var(--board-size))*var(--card-height));
+  max-width: 75vw;
+  padding:var(--card-spacing);
+  border-radius:var(--border-radius);
+  transform:skewX(-10deg);
+}
+
+.game-board::after {
+  z-index: -10;
+  position:absolute;
+  content:'';
+  background:var(--col-primary);
+  top: 10%;
+  right: 10%;
+  bottom: 10%;
+  left: 10%;
+  /* box-shadow:5px 5px 0 var(--col-black); */
+}
+
+.tile {
+  font-family: 'Permanent Marker', cursive;
+  font-size: .8em;
+  text-align:center;
+  margin:var(--card-spacing);
+  background:var(--col-base-1);
+  border-radius:var(--border-radius);
+  height:var(--card-height);
+  user-select: none;
+  box-shadow:5px 5px 0 var(--col-black);
+}
+
+.bg {
+  z-index:var(--z-bg);
+  position:absolute;
+  top:0;
+  width:100%;
+  height:100%;
+}
+
+.bg::before {
+  content:'';
+  box-sizing:border-box;
+  border: solid 1px var(--col-primary);
+  box-shadow: inset 0 0 200vw var(--col-primary);
+  position:absolute;
+  top:0;
+  width:100%;
+  height:100%;
+}
+
+.modal {
+  box-sizing:border-box;
+  position: fixed;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  flex-direction:column;
+
+
+  font-size:1.4em;
+  background: var(--col-base-2);
+  box-shadow:.7em .7em 0 var(--col-black);
+  padding:1em;
+}
+
+.hidden {
+  display:none !important;
+}
+
+@media only screen and (min-width:600px) {
+  header {
+    font-size:7em;
+  }
+}
