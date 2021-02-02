@@ -1,0 +1,24 @@
+{
+  "name": "tic-tac-toe",
+  "version": "1.0.0",
+  "description": "Another *vintage* Odin Project project. This project follows a series of lessons aimed at teaching various different types of scoping and dealing with objects: constructors, factories, classes, modules, and functional modules. The goal here is to create a program with a very modular structure, with minimal coupling or global state.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/isaiahaiasi/tic-tac-toe.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/isaiahaiasi/tic-tac-toe/issues"
+  },
+  "homepage": "https://github.com/isaiahaiasi/tic-tac-toe#readme",
+  "devDependencies": {
+    "webpack": "^5.19.0",
+    "webpack-cli": "^4.4.0"
+  }
+}
