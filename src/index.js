@@ -5,7 +5,7 @@ import { CreateXY } from './xy';
 import { BOARD_SIZE } from './globalvars';
 
 
-//* GAME MODEL / LOGIC
+//* LOGIC
 const GameFlow = (function ModelGameFlow() {
   let _players = [];
   let _currentPlayerIndex;
@@ -82,9 +82,6 @@ const GameFlow = (function ModelGameFlow() {
   return { init, getCurrentPlayer, getPlayers };
 })();
 
-// (Because of Minimax, I'm making a trillion copies of this
-// ... but the *statefulness* is passed in as a primitive object...
-// ... So, this would probably be a great chance to use PROTOTYPES)
 const GameBoard = (function(board = []) {
   let _count = 0;
 
@@ -276,8 +273,6 @@ const AI = (function AI() {
   return { setAI, getPosition };
 })();
 
-
-//* FACTORIES NOT CONTAINED WITHIN A SPECIFIC MODULE
 
 const CreatePlayer = (function Player(mark, type) {
   function takeTurn() {

@@ -1,10 +1,5 @@
 import { Events } from './events'; 
-//! Currently this code has invokes & subscribes for specific methods... BAD BAD BAD
-//! Event handling needs to be grouped together, because otherwise it will be literally impossible to track
-//! Probably, there should be a generic API for "View"-type objects (more reason to make View a prototype),
-//! Which would expose the functions that should interface with the event system in a generic way
-//! OR, failing that, AT LEAST interact only with the EVENTS MODULE ITSELF, 
-//! & not the specific events I publish in a totally different file
+// Not happy with scattering event handling everywhere. Separating into es modules just make it more clear
 
 import { CreateXY } from './xy'; // This seems like an acceptable dependancy
 
@@ -89,11 +84,7 @@ const BoardView = (function ViewBoard() {
     return { xy, node, clearEventListener };
   }
 
-  //TODO: This should only re-render the tiles that have actually changed
-  //TODO: (if I want to render a large number of tiles)
   function _updateBoard() {
-    //? Could maybe use Dependency Injection thru event, 
-    //? instead of directly interfacing w GameBoard module?
     const newBoardState = _gameBoard.getBoard();
 
     _boardTiles.forEach(tile => {
