@@ -21,5 +21,7 @@ I've been so excited having the ability to encapsulate, namespace, and add priva
 ## Minimax ♜
 Trying to be clever bit me again. Before even beginning on the minimax implementation, I had to remove 80 lines of cruft, because I used a lengthy generic "check win" algorithm. The advantage of this method was it would work for any size board square (so you could have, say, a 7x7 board).
 
-## Secret Mode 🕵️
-shhh... it's still a secret. The test of my decoupling will be how difficult it is to slot in a different ruleset.
+Implementing minimax also helped me understand why people sometimes call the "singleton" pattern a code smell. I had set up my GameBoard module, effectively, as a singleton--you could only have one instance of it, and that instance had particular state info about the board. I thought this would be fine, but minimax required running through hundreds of possible board outcomes, and it didn't make sense to try to mutate the True board's data and reset it throughout all those variations. If I had pushed myself to only use modules when I logically *couldn't* have more than one instance, rather than when I assumed I wouldn't *want* more than one instance, I could have avoided refactoring that section of code.
+
+## Refactoring with ES Modules
+The lesson after this covers webpack and splitting code up using es6 modules. To try to get a better understanding of the process, I refactored this project using these new tools. It was mostly straightforward, but again it helped highlight some of my myopic organization. Even though I tried to keep my concerns separated, I didn't always keep true to that rule, and there were a handful of dependencies that I needed to refactor away through dependency injection. It's still not perfect, but the process definitely gave me a better idea of things to watch out for in the future.
